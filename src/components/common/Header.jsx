@@ -38,7 +38,7 @@ export default function Header() {
             <NavLink to="/logs/patient-list" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               PATIENT LIST & LOGS
             </NavLink>
-            <NavLink to="/patient-detail" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+            <NavLink to="/patients/PT-1001" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               PATIENT DETAIL
             </NavLink>
           </div>

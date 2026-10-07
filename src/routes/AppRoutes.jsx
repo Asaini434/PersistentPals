@@ -21,7 +21,7 @@ export default function AppRoutes() {
         <Route index element={<Navigate to="/logs/patient-list" replace />} />
         <Route path="logs/patient-list" element={<PatientList />} />
         <Route path="patients/:id" element={<PatientDetail />} />
-        <Route path="patient-detail" element={<PatientDetail />} />
+        <Route path="patient-detail" element={<Navigate to="/patients/PT-1001" replace />} />
       </Route>
 
       {/* Fallback Route */}

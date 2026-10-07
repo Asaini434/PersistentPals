@@ -12,7 +12,7 @@ export default function Sidebar() {
           Patient Logs List
         </NavLink>
         <NavLink 
-          to="/patient-detail" 
+          to="/patients/PT-1001" 
           className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
         >
           Patient Detail
