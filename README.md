@@ -36,7 +36,7 @@
 ## 📁 Directory Structure
 
 ```text
-ChallengeX-Front_end/
+PersistentPals/
 ├── index.html                   # HTML entry point (Plus Jakarta Sans font + Title)
 ├── package.json                 # Project dependencies and script commands
 ├── vite.config.js               # Vite bundler configuration
