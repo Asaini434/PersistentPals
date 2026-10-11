@@ -29,6 +29,7 @@
 - **Styling**: Vanilla CSS3 with CSS Variables & Glassmorphism
 - **Iconography**: Lucide React
 - **HTTP/Services Layer**: Modular fetch abstraction (`api.js`) ready for backend REST API integration
+- **Database**: PostgreSQL 16 (synthetic data only)
 
 ---
 
@@ -40,6 +41,9 @@ ChallengeX-Front_end/
 ├── package.json                 # Project dependencies and script commands
 ├── vite.config.js               # Vite bundler configuration
 ├── .env.example                 # Environment variable template
+├── database/
+│   ├── schema.sql               # PostgreSQL table definitions
+│   └── seed.sql                 # Synthetic sample data
 └── src/
     ├── main.jsx                 # React DOM mount point
     ├── App.jsx                  # Root App wrapper with BrowserRouter
@@ -82,7 +86,7 @@ Clone the repository and install dependencies:
 
 ```bash
 git clone https://github.com/Asaini434/PersistentPals.git
-cd ChallengeX-Front_end
+cd PersistentPals
 npm install
 ```
 
@@ -131,6 +135,97 @@ npm run preview
 | `/logs/patient-list` | `Patient-list.jsx` | Main patient list & clinical logs with search & filters |
 | `/patients/:id` | `PatientDetail.jsx` | Individual patient details & vitals dashboard |
 | `/patient-detail` | Redirect | Automatically redirects to `/patients/PT-1001` |
+
+---
+
+## 🗄️ Database (PostgreSQL)
+
+The database holds **synthetic data only** (no real patient information). It is designed to sit behind the API layer and will be connected to the front end once the API is ready. Until then, the front end runs on `src/data/mockPatients.js`.
+
+### 1. Prerequisites
+- **PostgreSQL**: `v16` recommended
+
+**macOS (Homebrew):**
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+```
+
+If `psql` is not found afterward, add Postgres to your PATH using the `export PATH=...` line Homebrew prints after install.
+
+**Alternative (Docker):**
+
+```bash
+docker run --name reflect-db -e POSTGRES_PASSWORD=devpassword -e POSTGRES_DB=reflect -p 5432:5432 -d postgres:16
+```
+
+### 2. Create the Database
+
+Only needed the first time on your machine. If it says `already exists`, you can skip it.
+
+```bash
+createdb reflect
+```
+
+### 3. Build the Tables and Load Sample Data
+From the repository root:
+
+```bash
+psql reflect -f database/schema.sql
+psql reflect -f database/seed.sql
+```
+
+With Docker, run the same files through the container:
+
+```bash
+docker exec -i reflect-db psql -U postgres -d reflect < database/schema.sql
+docker exec -i reflect-db psql -U postgres -d reflect < database/seed.sql
+```
+
+### 4. Verify
+
+```bash
+psql reflect
+\dt
+\q
+```
+
+You should see the tables listed below.
+
+### 5. Reset from Scratch
+
+```bash
+dropdb reflect
+createdb reflect
+psql reflect -f database/schema.sql
+psql reflect -f database/seed.sql
+```
+
+Connection string for the API: `postgresql://localhost:5432/reflect` (Docker: `postgresql://postgres:devpassword@localhost:5432/reflect`).
+
+### Tables
+
+| Table | Purpose |
+| :--- | :--- |
+| `users` | Login accounts with a role of `Admin` or `Provider` |
+| `patients` | Patient personal details (synthetic) |
+| `patient_medical_history` | Medical history entries, many per patient |
+| `provider_patients` | Which provider is assigned to which patient |
+| `clinical_sessions` | Therapy sessions between provider and patient (remote or in person) |
+| `modules` | Catalog of Reflect XR and Reflect Mobile experiences |
+| `app_sessions` | Patient app usage: platform, module, start and end time |
+| `provider_review_sessions` | Time a provider spends reviewing a patient (reimbursement, admin calendar) |
+| `provider_notes` | Provider session notes and trend/activity logs |
+| `patient_communications` | Log of async provider/patient communication |
+| `chat_messages` | AI chat history |
+
+### Conventions
+- Every table has `id` (UUID), `date_created`, `is_deleted`, and `date_deleted`, following PTI's tech spec.
+- Timestamps are stored in UTC (`timestamptz`) and converted for display only.
+- Rows are soft-deleted (`is_deleted = true`), never removed.
+- Durations are computed from start and end times, not stored.
+- All data is synthetic. Never commit real patient data or credentials.
 
 ---
 
