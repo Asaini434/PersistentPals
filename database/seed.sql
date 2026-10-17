@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Providers: the four attending physicians from the mock data, plus one admin
 INSERT INTO users (email, display_name, title, specialty, role) VALUES
   ('sarah.jenkins@example.com', 'Dr. Sarah Jenkins', 'Attending Physician', 'Cardiology',  'Provider'),
