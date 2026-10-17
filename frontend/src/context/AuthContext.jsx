@@ -1,25 +1,17 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
+import { authService } from '../services/authService';
 
 const AuthContext = createContext(null);
 
 // Preset accounts for Admin and Provider credentials
 export const PRESET_CREDENTIALS = {
   admin: {
-    email: 'admin@reflectx.com',
-    password: 'admin123',
-    name: 'Administrator (Operations Lead)',
-    role: 'admin',
-    department: 'Hospital Administration & Clinical Systems',
-    title: 'System Administrator',
+    email: 'admin@example.com',
+    password: 'demo-password',
   },
   provider: {
-    email: 'provider@reflectx.com',
-    password: 'provider123',
-    name: 'Dr. Sarah Jenkins, MD',
-    role: 'provider',
-    department: 'Cardiology',
-    title: 'Lead Attending Cardiologist',
-    providerId: 'PRV-201',
+    email: 'sarah.jenkins@example.com',
+    password: 'demo-password',
   },
 };
 
@@ -29,7 +21,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      return parsed.user && parsed.access_token ? parsed.user : null;
     } catch {
       return null;
     }
@@ -37,47 +31,18 @@ export function AuthProvider({ children }) {
 
   const [authError, setAuthError] = useState('');
 
-  const login = (email, password) => {
+  const login = async (email, password) => {
     setAuthError('');
-    const normalizedEmail = (email || '').trim().toLowerCase();
-    const cleanPassword = (password || '').trim();
-
-    if (
-      normalizedEmail === PRESET_CREDENTIALS.admin.email.toLowerCase() &&
-      cleanPassword === PRESET_CREDENTIALS.admin.password
-    ) {
-      const adminUser = {
-        email: PRESET_CREDENTIALS.admin.email,
-        name: PRESET_CREDENTIALS.admin.name,
-        role: PRESET_CREDENTIALS.admin.role,
-        department: PRESET_CREDENTIALS.admin.department,
-        title: PRESET_CREDENTIALS.admin.title,
-      };
-      setUser(adminUser);
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
-      return { success: true, role: 'admin' };
+    try {
+      const session = await authService.login({ email, password });
+      setUser(session.user);
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      return { success: true, role: session.user.role };
+    } catch (error) {
+      const message = error.message || 'Unable to sign in. Please try again.';
+      setAuthError(message);
+      return { success: false, error: message };
     }
-
-    if (
-      normalizedEmail === PRESET_CREDENTIALS.provider.email.toLowerCase() &&
-      cleanPassword === PRESET_CREDENTIALS.provider.password
-    ) {
-      const providerUser = {
-        email: PRESET_CREDENTIALS.provider.email,
-        name: PRESET_CREDENTIALS.provider.name,
-        role: PRESET_CREDENTIALS.provider.role,
-        department: PRESET_CREDENTIALS.provider.department,
-        title: PRESET_CREDENTIALS.provider.title,
-        providerId: PRESET_CREDENTIALS.provider.providerId,
-      };
-      setUser(providerUser);
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(providerUser));
-      return { success: true, role: 'provider' };
-    }
-
-    const err = 'Invalid email or password. Please use the designated Admin or Provider credentials.';
-    setAuthError(err);
-    return { success: false, error: err };
   };
 
   const logout = () => {
@@ -85,7 +50,7 @@ export function AuthProvider({ children }) {
     setAuthError('');
     try {
       sessionStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
+    } catch {
       // ignore
     }
   };

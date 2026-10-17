@@ -109,6 +109,49 @@ Default environment variable:
 VITE_API_URL=http://localhost:8000
 ```
 
+### Run the FastAPI backend
+
+The API authenticates against `users` and `user_credentials` in PostgreSQL. Passwords are verified against the bcrypt-compatible hashes created by `database/seed.sql`.
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn main:app --reload --port 8000
+```
+
+Set `DATABASE_URL` and replace `JWT_SECRET` in `backend/.env`. Seeded demo logins are `admin@example.com` and `sarah.jenkins@example.com`; both use `demo-password` after running `database/seed.sql`.
+
+### Test authentication with Postman
+
+1. Start PostgreSQL and ensure the `reflect` database has been initialized with `database/schema.sql` and `database/seed.sql`.
+2. In `backend/`, create `.env` from `.env.example`, set a working `DATABASE_URL`, and replace `JWT_SECRET` with a long random value.
+3. Install the backend packages with `pip install -r requirements.txt`, then start the API with `python main.py`. Confirm `http://localhost:8000/health` returns `{"status":"ok"}`.
+4. Import `backend/postman/ReflectX Auth.postman_collection.json` into Postman.
+5. Send **Health check** first, then **Login**. The default request uses `admin@example.com` / `demo-password`; a successful response is HTTP 200 with `user` and `access_token` fields. The collection saves the token automatically.
+6. Send **Current user (verify token)** to confirm the bearer token works. Send **Login with invalid password** to verify bad credentials return HTTP 401.
+
+The API also exposes interactive documentation at `http://localhost:8000/docs`.
+
+### Backend API routes
+
+API handlers are grouped under `backend/routes/`. Login accepts either a seeded username or email and returns an eight-hour bearer token. Send that token in `Authorization: Bearer <access_token>` for protected routes.
+
+| Method | Endpoint | Access | Purpose |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/login` | Public | Authenticate with `{ "username": "sjenkins", "password": "demo-password" }`; `email` is also accepted. |
+| `GET` | `/auth/me` | Authenticated | Verify the bearer token and return the logged-in user id and role. |
+| `GET` | `/logs/patient-list` | Provider/Admin | List the caller's assigned patients. Admins may pass `?providerId=<uuid>`. |
+| `GET` | `/providers/{provider_id}/patients` | Provider/Admin | List a provider's assigned patients; providers can only request themselves. |
+| `GET` | `/providers?providerId=<uuid>` | Provider/Admin | Get a provider profile and assigned patients; providers can only request themselves. |
+| `GET` | `/patients/{patient_id}` | Provider/Admin | Get patient demographics, assigned providers, medical history, clinical notes, app sessions, and clinical sessions. |
+| `GET` | `/admin/providers` | Admin | List provider accounts and assigned-patient counts. |
+| `GET` | `/admin/providers/{provider_id}` | Admin | Get one provider and assigned-patient details. |
+
+These endpoints use the existing schema (`users`, `user_credentials`, `assignments`, `patients`, `patient_medical_history`, `provider_notes`, `sessions`, `clinical_sessions`, and `modules`). The schema does not currently store provider addresses, room numbers, or mock licensing/shift metrics, so the APIs do not fabricate those fields.
+
 ### 4. Running Locally
 Start the development server from the frontend folder:
 
