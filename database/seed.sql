@@ -187,3 +187,15 @@ CROSS JOIN LATERAL (
   WHERE (g + length(u.email)) % 3 <> 0
 ) t
 WHERE NOT EXISTS (SELECT 1 FROM provider_review_sessions);
+
+INSERT INTO user_credentials (user_id, username, password_hash)
+SELECT u.id, v.username, crypt('demo-password', gen_salt('bf'))
+FROM (VALUES
+  ('admin@example.com',         'admin'),
+  ('sarah.jenkins@example.com', 'sjenkins'),
+  ('robert.miller@example.com', 'rmiller'),
+  ('amanda.chen@example.com',   'achen'),
+  ('david.ross@example.com',    'dross')
+) AS v(email, username)
+JOIN users u ON u.email = v.email
+ON CONFLICT DO NOTHING;

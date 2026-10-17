@@ -10,6 +10,17 @@ CREATE TABLE IF NOT EXISTS users (
     	date_deleted  timestamptz
 );
 
+CREATE TABLE IF NOT EXISTS user_credentials (
+    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id        NOT NULL UNIQUE REFERENCES users(id),
+    username       text NOT NULL UNIQUE CHECK (username <> ''),
+    password_hash  text NOT NULL,
+    last_login_at  timestamptz,
+    date_created   timestamptz NOT NULL DEFAULT now(),
+    is_deleted     boolean NOT NULL DEFAULT false,
+    date_deleted   timestamptz
+);
+
 CREATE TABLE IF NOT EXISTS patients (
 	id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     	email         text NOT NULL UNIQUE,
