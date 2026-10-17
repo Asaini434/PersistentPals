@@ -40,28 +40,28 @@ export default function Login() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError('');
-    setLoading(true);
-
     if (!formData.email.trim() || !formData.password.trim()) {
       setLocalError('Please enter both email and password.');
-      setLoading(false);
       return;
     }
 
-    const result = login(formData.email, formData.password);
-    setLoading(false);
-
-    if (result.success) {
-      if (result.role === 'admin') {
-        navigate('/admin/providers', { replace: true });
+    setLoading(true);
+    try {
+      const result = await login(formData.email, formData.password);
+      if (result.success) {
+        if (result.role === 'admin') {
+          navigate('/admin/providers', { replace: true });
+        } else {
+          navigate('/logs/patient-list', { replace: true });
+        }
       } else {
-        navigate('/logs/patient-list', { replace: true });
+        setLocalError(result.error);
       }
-    } else {
-      setLocalError(result.error);
+    } finally {
+      setLoading(false);
     }
   };
 
