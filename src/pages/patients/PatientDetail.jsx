@@ -4,15 +4,29 @@ import { MOCK_PATIENTS } from '../../data/mockPatients';
 
 /**
  * Patient Detail Page Component
+ * Renders individual patient vitals, diagnosis, and clinical logs.
  */
 export default function PatientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // Find patient by ID or fallback to the first patient
-  const initialPatient = MOCK_PATIENTS.find((p) => p.id === id) || MOCK_PATIENTS[0];
-  const [patient, setPatient] = useState(initialPatient);
+  // Find active patient by ID (case-insensitive) or fallback to first patient
+  const activePatient =
+    MOCK_PATIENTS.find((p) => p.id.toLowerCase() === (id || '').toLowerCase()) ||
+    MOCK_PATIENTS[0];
+
+  const [customLogs, setCustomLogs] = useState({});
   const [newLogNote, setNewLogNote] = useState('');
+
+  // Combine custom logs with mock patient logs
+  const patientLogs = [
+    ...(customLogs[activePatient.id] || []),
+    ...activePatient.logs,
+  ];
+
+  const currentIndex = MOCK_PATIENTS.findIndex((p) => p.id === activePatient.id);
+  const prevPatient = MOCK_PATIENTS[(currentIndex - 1 + MOCK_PATIENTS.length) % MOCK_PATIENTS.length];
+  const nextPatient = MOCK_PATIENTS[(currentIndex + 1) % MOCK_PATIENTS.length];
 
   const handleAddLog = (e) => {
     e.preventDefault();
@@ -21,14 +35,11 @@ export default function PatientDetail() {
     const now = new Date();
     const timestamp = now.toISOString().slice(0, 10) + ' ' + now.toTimeString().slice(0, 5);
     
-    const updatedLogs = [
-      { timestamp, note: newLogNote.trim() },
-      ...patient.logs,
-    ];
+    const newEntry = { timestamp, note: newLogNote.trim() };
 
-    setPatient((prev) => ({
+    setCustomLogs((prev) => ({
       ...prev,
-      logs: updatedLogs,
+      [activePatient.id]: [newEntry, ...(prev[activePatient.id] || [])],
     }));
 
     setNewLogNote('');
@@ -49,39 +60,66 @@ export default function PatientDetail() {
     }
   };
 
-  if (!patient) {
-    return (
-      <div className="page-container patient-detail-page">
-        <div className="empty-state">
-          <h3>Patient Not Found</h3>
-          <p>The patient record you requested could not be located.</p>
-          <Link to="/logs/patient-list" className="btn-back">
-            <span className="back-arrow">←</span> Back to Patient List
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="page-container patient-detail-page">
-      <nav className="breadcrumb">
+      <div className="detail-top-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <Link to="/logs/patient-list" className="btn-back">
           <span className="back-arrow">←</span> Back to Patient List
         </Link>
-      </nav>
+
+        {/* Quick Prev / Next Jump */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+            onClick={() => navigate(`/patients/${prevPatient.id}`)}
+            title={`Switch to ${prevPatient.name}`}
+          >
+            ← Prev ({prevPatient.name.split(' ')[0]})
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+            onClick={() => navigate(`/patients/${nextPatient.id}`)}
+            title={`Switch to ${nextPatient.name}`}
+          >
+            Next ({nextPatient.name.split(' ')[0]}) →
+          </button>
+        </div>
+      </div>
+
+      {/* Patient Switcher Bar */}
+      <div className="provider-switcher-container">
+        <span className="switcher-label">Switch Patient View:</span>
+        <div className="switcher-pills">
+          {MOCK_PATIENTS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`switcher-pill ${p.id === activePatient.id ? 'active' : ''}`}
+              onClick={() => navigate(`/patients/${p.id}`)}
+            >
+              <span className="switcher-pill-name">{p.name}</span>
+              <span className="switcher-pill-dept">{p.room} • {p.status}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Patient Header Banner */}
-      <div className="patient-card-header">
+      <div className="patient-card-header" style={{ marginTop: '20px' }}>
         <div className="patient-title-group">
-          <h2>{patient.name}</h2>
-          <span className="patient-id-tag">{patient.id}</span>
-          <span className={getStatusBadgeClass(patient.status)}>{patient.status}</span>
+          <h2>{activePatient.name}</h2>
+          <span className="patient-id-tag">{activePatient.id}</span>
+          <span className={getStatusBadgeClass(activePatient.status)}>{activePatient.status}</span>
         </div>
 
         <div className="patient-quick-meta">
-          <span><strong>Room:</strong> {patient.room}</span>
-          <span><strong>Admitted:</strong> {patient.admissionDate}</span>
+          <span><strong>Room:</strong> {activePatient.room}</span>
+          <span><strong>Admitted:</strong> {activePatient.admissionDate}</span>
+          <span><strong>Attending:</strong> {activePatient.attendingPhysician}</span>
         </div>
       </div>
 
@@ -91,23 +129,23 @@ export default function PatientDetail() {
         <div className="vitals-grid">
           <div className="vital-card">
             <span className="vital-label">Heart Rate</span>
-            <span className="vital-value">{patient.vitals.heartRate}</span>
+            <span className="vital-value">{activePatient.vitals.heartRate}</span>
           </div>
           <div className="vital-card">
             <span className="vital-label">Blood Pressure</span>
-            <span className="vital-value">{patient.vitals.bloodPressure}</span>
+            <span className="vital-value">{activePatient.vitals.bloodPressure}</span>
           </div>
           <div className="vital-card">
             <span className="vital-label">SpO₂</span>
-            <span className="vital-value">{patient.vitals.oxygenSaturation}</span>
+            <span className="vital-value">{activePatient.vitals.oxygenSaturation}</span>
           </div>
           <div className="vital-card">
             <span className="vital-label">Temperature</span>
-            <span className="vital-value">{patient.vitals.temperature}</span>
+            <span className="vital-value">{activePatient.vitals.temperature}</span>
           </div>
           <div className="vital-card">
             <span className="vital-label">Resp. Rate</span>
-            <span className="vital-value">{patient.vitals.respiratoryRate}</span>
+            <span className="vital-value">{activePatient.vitals.respiratoryRate}</span>
           </div>
         </div>
       </section>
@@ -121,39 +159,39 @@ export default function PatientDetail() {
             <div className="info-grid">
               <div className="info-item">
                 <label>Primary Diagnosis</label>
-                <p><strong>{patient.diagnosis}</strong></p>
+                <p><strong>{activePatient.diagnosis}</strong></p>
               </div>
               <div className="info-item">
                 <label>Attending Physician</label>
-                <p>{patient.attendingPhysician}</p>
+                <p>{activePatient.attendingPhysician}</p>
               </div>
               <div className="info-item">
                 <label>Age / Gender</label>
-                <p>{patient.age} years ({patient.gender})</p>
+                <p>{activePatient.age} years ({activePatient.gender})</p>
               </div>
               <div className="info-item">
                 <label>Blood Type</label>
-                <p>{patient.bloodType}</p>
+                <p>{activePatient.bloodType}</p>
               </div>
               <div className="info-item">
                 <label>Contact Phone</label>
-                <p>{patient.phone}</p>
+                <p>{activePatient.phone}</p>
               </div>
               <div className="info-item">
                 <label>Email Address</label>
-                <p>{patient.email}</p>
+                <p>{activePatient.email}</p>
               </div>
               <div className="info-item full-width">
                 <label>Allergies</label>
                 <div className="allergy-tags">
-                  {patient.allergies.map((allergy, i) => (
+                  {activePatient.allergies.map((allergy, i) => (
                     <span key={i} className="allergy-tag">{allergy}</span>
                   ))}
                 </div>
               </div>
               <div className="info-item full-width">
                 <label>Medical History</label>
-                <p>{patient.history}</p>
+                <p>{activePatient.history}</p>
               </div>
             </div>
           </section>
@@ -162,7 +200,7 @@ export default function PatientDetail() {
           <section className="detail-section card">
             <h3>Active Medications</h3>
             <ul className="medication-list">
-              {patient.medications.map((med, index) => (
+              {activePatient.medications.map((med, index) => (
                 <li key={index} className="medication-item">
                   <div>
                     <strong>{med.name}</strong> - <span>{med.dosage}</span>
@@ -186,13 +224,13 @@ export default function PatientDetail() {
                 value={newLogNote}
                 onChange={(e) => setNewLogNote(e.target.value)}
               />
-              <button type="submit" className="btn-primary">
+              <button type="submit" className="btn-primary" style={{ width: '100%' }}>
                 Add Log Entry
               </button>
             </form>
 
             <div className="logs-timeline">
-              {patient.logs.map((log, index) => (
+              {patientLogs.map((log, index) => (
                 <div key={index} className="log-entry">
                   <div className="log-timestamp">{log.timestamp}</div>
                   <p className="log-text">{log.note}</p>
