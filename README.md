@@ -37,40 +37,46 @@
 
 ```text
 PersistentPals/
-├── index.html                   # HTML entry point (Plus Jakarta Sans font + Title)
-├── package.json                 # Project dependencies and script commands
-├── vite.config.js               # Vite bundler configuration
-├── .env.example                 # Environment variable template
+├── backend/                     # Backend service code (if added later)
 ├── database/
 │   ├── schema.sql               # PostgreSQL table definitions
 │   └── seed.sql                 # Synthetic sample data
-└── src/
-    ├── main.jsx                 # React DOM mount point
-    ├── App.jsx                  # Root App wrapper with BrowserRouter
-    ├── index.css                # Reflect XR design system & responsive styling
-    ├── components/
-    │   ├── common/
-    │   │   ├── Header.jsx       # Floating navbar with Reflect XR branding & nav links
-    │   │   └── Sidebar.jsx      # Secondary sidebar navigation
-    │   └── layout/
-    │       ├── AuthLayout.jsx   # Centered layout container for login/signup
-    │       └── MainLayout.jsx   # Header + Sidebar layout shell for app pages
-    ├── data/
-    │   └── mockPatients.js      # Mock patient records & clinical log timeline data
-    ├── pages/
-    │   ├── auth/
-    │   │   ├── Login.jsx        # Login page component
-    │   │   └── Signup.jsx       # Signup page component
-    │   ├── logs/
-    │   │   └── Patient-list.jsx # Patient List & Clinical Logs page
-    │   └── patients/
-    │       └── PatientDetail.jsx# Patient Detail & Vitals dashboard page
-    ├── routes/
-    │   └── AppRoutes.jsx        # Application routing table
-    └── services/
-        ├── api.js               # Base fetch client (reads VITE_API_URL)
-        ├── authService.js       # Authentication service endpoints
-        └── patientService.js    # Patient logs & details service endpoints
+├── frontend/
+│   ├── .env.example             # Environment variable template
+│   ├── eslint.config.js         # ESLint configuration
+│   ├── index.html               # HTML entry point (Plus Jakarta Sans font + Title)
+│   ├── package.json             # React project dependencies and scripts
+│   ├── package-lock.json        # Lock file for frontend dependencies
+│   ├── vite.config.js           # Vite bundler configuration
+│   ├── public/
+│   └── src/
+│       ├── main.jsx             # React DOM mount point
+│       ├── App.jsx              # Root App wrapper with BrowserRouter
+│       ├── index.css            # Reflect XR design system & responsive styling
+│       ├── components/
+│       │   ├── common/
+│       │   │   ├── Header.jsx   # Floating navbar with Reflect XR branding & nav links
+│       │   │   └── Sidebar.jsx  # Secondary sidebar navigation
+│       │   └── layout/
+│       │       ├── AuthLayout.jsx # Centered layout container for login/signup
+│       │       └── MainLayout.jsx # Header + Sidebar layout shell for app pages
+│       ├── data/
+│       │   └── mockPatients.js  # Mock patient records & clinical log timeline data
+│       ├── pages/
+│       │   ├── auth/
+│       │   │   ├── Login.jsx    # Login page component
+│       │   │   └── Signup.jsx   # Signup page component
+│       │   ├── logs/
+│       │   │   └── PatientList.jsx # Patient list & clinical logs page
+│       │   └── patients/
+│       │       └── PatientDetail.jsx # Patient detail & vitals dashboard page
+│       ├── routes/
+│       │   └── AppRoutes.jsx    # Application routing table
+│       └── services/
+│           ├── api.js           # Base fetch client (reads VITE_API_URL)
+│           ├── authService.js   # Authentication service endpoints
+│           └── patientService.js # Patient logs & details service endpoints
+└── README.md                    # Project overview and setup notes
 ```
 
 ---
@@ -82,11 +88,12 @@ PersistentPals/
 - **npm**: `v10+`
 
 ### 2. Installation & Setup
-Clone the repository and install dependencies:
+Clone the repository, move into the frontend app, and install dependencies:
 
 ```bash
 git clone https://github.com/Asaini434/PersistentPals.git
 cd PersistentPals
+cd frontend
 npm install
 ```
 
@@ -103,7 +110,7 @@ VITE_API_URL=http://localhost:8000
 ```
 
 ### 4. Running Locally
-Start the development server:
+Start the development server from the frontend folder:
 
 ```bash
 npm run dev
@@ -140,7 +147,7 @@ npm run preview
 
 ## 🗄️ Database (PostgreSQL)
 
-The database holds **synthetic data only** (no real patient information). It is designed to sit behind the API layer and will be connected to the front end once the API is ready. Until then, the front end runs on `src/data/mockPatients.js`.
+The database holds **synthetic data only** (no real patient information). It is designed to sit behind the API layer and will be connected to the front end once the API is ready. Until then, the front end runs on `frontend/src/data/mockPatients.js`.
 
 ### 1. Prerequisites
 - **PostgreSQL**: `v16` recommended
