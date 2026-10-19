@@ -37,40 +37,44 @@
 
 ```text
 PersistentPals/
-├── index.html                   # HTML entry point (Plus Jakarta Sans font + Title)
-├── package.json                 # Project dependencies and script commands
-├── vite.config.js               # Vite bundler configuration
-├── .env.example                 # Environment variable template
+├── backend/                     # API/backend services
 ├── database/
 │   ├── schema.sql               # PostgreSQL table definitions
 │   └── seed.sql                 # Synthetic sample data
-└── src/
-    ├── main.jsx                 # React DOM mount point
-    ├── App.jsx                  # Root App wrapper with BrowserRouter
-    ├── index.css                # Reflect XR design system & responsive styling
-    ├── components/
-    │   ├── common/
-    │   │   ├── Header.jsx       # Floating navbar with Reflect XR branding & nav links
-    │   │   └── Sidebar.jsx      # Secondary sidebar navigation
-    │   └── layout/
-    │       ├── AuthLayout.jsx   # Centered layout container for login/signup
-    │       └── MainLayout.jsx   # Header + Sidebar layout shell for app pages
-    ├── data/
-    │   └── mockPatients.js      # Mock patient records & clinical log timeline data
-    ├── pages/
-    │   ├── auth/
-    │   │   ├── Login.jsx        # Login page component
-    │   │   └── Signup.jsx       # Signup page component
-    │   ├── logs/
-    │   │   └── Patient-list.jsx # Patient List & Clinical Logs page
-    │   └── patients/
-    │       └── PatientDetail.jsx# Patient Detail & Vitals dashboard page
-    ├── routes/
-    │   └── AppRoutes.jsx        # Application routing table
-    └── services/
-        ├── api.js               # Base fetch client (reads VITE_API_URL)
-        ├── authService.js       # Authentication service endpoints
-        └── patientService.js    # Patient logs & details service endpoints
+├── frontend/                    # React + Vite frontend application
+│   ├── index.html               # HTML entry point (Plus Jakarta Sans font + Title)
+│   ├── package.json             # Project dependencies and script commands
+│   ├── vite.config.js           # Vite bundler configuration
+│   ├── .env.example             # Environment variable template
+│   ├── public/
+│   └── src/
+│       ├── main.jsx             # React DOM mount point
+│       ├── App.jsx              # Root App wrapper with BrowserRouter
+│       ├── index.css            # Reflect XR design system & responsive styling
+│       ├── components/
+│       │   ├── common/
+│       │   │   ├── Header.jsx   # Floating navbar with Reflect XR branding & nav links
+│       │   │   └── Sidebar.jsx  # Secondary sidebar navigation
+│       │   └── layout/
+│       │       ├── AuthLayout.jsx # Centered layout container for login/signup
+│       │       └── MainLayout.jsx # Header + Sidebar layout shell for app pages
+│       ├── data/
+│       │   └── mockPatients.js  # Mock patient records & clinical log timeline data
+│       ├── pages/
+│       │   ├── auth/
+│       │   │   ├── Login.jsx    # Login page component
+│       │   │   └── Signup.jsx   # Signup page component
+│       │   ├── logs/
+│       │   │   └── PatientList.jsx # Patient List & Clinical Logs page
+│       │   └── patients/
+│       │       └── PatientDetail.jsx # Patient Detail & Vitals dashboard page
+│       ├── routes/
+│       │   └── AppRoutes.jsx    # Application routing table
+│       └── services/
+│           ├── api.js           # Base fetch client (reads VITE_API_URL)
+│           ├── authService.js   # Authentication service endpoints
+│           └── patientService.js # Patient logs & details service endpoints
+└── README.md                   # Project overview and setup guide
 ```
 
 ---
@@ -82,11 +86,11 @@ PersistentPals/
 - **npm**: `v10+`
 
 ### 2. Installation & Setup
-Clone the repository and install dependencies:
+Clone the repository and install the frontend dependencies:
 
 ```bash
 git clone https://github.com/Asaini434/PersistentPals.git
-cd PersistentPals
+cd PersistentPals/frontend
 npm install
 ```
 
@@ -103,9 +107,10 @@ VITE_API_URL=http://localhost:8000
 ```
 
 ### 4. Running Locally
-Start the development server:
+From the frontend directory, start the development server:
 
 ```bash
+cd frontend
 npm run dev
 ```
 
@@ -115,12 +120,14 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 To create an optimized production build:
 
 ```bash
+cd frontend
 npm run build
 ```
 
 To preview the built app:
 
 ```bash
+cd frontend
 npm run preview
 ```
 
