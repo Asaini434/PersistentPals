@@ -37,17 +37,15 @@
 
 ```text
 PersistentPals/
-├── backend/                     # Backend service code (if added later)
+├── backend/                     # API/backend services
 ├── database/
 │   ├── schema.sql               # PostgreSQL table definitions
 │   └── seed.sql                 # Synthetic sample data
-├── frontend/
-│   ├── .env.example             # Environment variable template
-│   ├── eslint.config.js         # ESLint configuration
+├── frontend/                    # React + Vite frontend application
 │   ├── index.html               # HTML entry point (Plus Jakarta Sans font + Title)
-│   ├── package.json             # React project dependencies and scripts
-│   ├── package-lock.json        # Lock file for frontend dependencies
+│   ├── package.json             # Project dependencies and script commands
 │   ├── vite.config.js           # Vite bundler configuration
+│   ├── .env.example             # Environment variable template
 │   ├── public/
 │   └── src/
 │       ├── main.jsx             # React DOM mount point
@@ -67,16 +65,16 @@ PersistentPals/
 │       │   │   ├── Login.jsx    # Login page component
 │       │   │   └── Signup.jsx   # Signup page component
 │       │   ├── logs/
-│       │   │   └── PatientList.jsx # Patient list & clinical logs page
+│       │   │   └── PatientList.jsx # Patient List & Clinical Logs page
 │       │   └── patients/
-│       │       └── PatientDetail.jsx # Patient detail & vitals dashboard page
+│       │       └── PatientDetail.jsx # Patient Detail & Vitals dashboard page
 │       ├── routes/
 │       │   └── AppRoutes.jsx    # Application routing table
 │       └── services/
 │           ├── api.js           # Base fetch client (reads VITE_API_URL)
 │           ├── authService.js   # Authentication service endpoints
 │           └── patientService.js # Patient logs & details service endpoints
-└── README.md                    # Project overview and setup notes
+└── README.md                   # Project overview and setup guide
 ```
 
 ---
@@ -88,12 +86,11 @@ PersistentPals/
 - **npm**: `v10+`
 
 ### 2. Installation & Setup
-Clone the repository, move into the frontend app, and install dependencies:
+Clone the repository and install the frontend dependencies:
 
 ```bash
 git clone https://github.com/Asaini434/PersistentPals.git
-cd PersistentPals
-cd frontend
+cd PersistentPals/frontend
 npm install
 ```
 
@@ -156,6 +153,7 @@ These endpoints use the existing schema (`users`, `user_credentials`, `assignmen
 Start the development server from the frontend folder:
 
 ```bash
+cd frontend
 npm run dev
 ```
 
@@ -165,12 +163,14 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 To create an optimized production build:
 
 ```bash
+cd frontend
 npm run build
 ```
 
 To preview the built app:
 
 ```bash
+cd frontend
 npm run preview
 ```
 
