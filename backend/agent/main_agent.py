@@ -62,7 +62,7 @@ def answer_message(
     target_type = target["type"] if target else None
     target_id = target["id"] if target else None
     about_patient_id = target_id if target_type == "patient" else None
-    about_provider_id = target_id if target_type == "provider" else user["id"]
+    about_provider_id = None if about_patient_id else (target_id if target_type == "provider" else user["id"])
     target_metadata = {"type": target_type, "id": target_id} if target else None
 
     user_row = connection.execute(
