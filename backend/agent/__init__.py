@@ -56,12 +56,13 @@ def generate_answer(
             base_url=base_url,
             api_key=api_key,
         )
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.2,
-            max_tokens=500,
-        )
+        request_kwargs = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": 1500,
+        }
+        response = client.chat.completions.create(**request_kwargs)
     except APIConnectionError as error:
         if provider == "ollama":
             raise ChatbotProviderError(
@@ -91,5 +92,10 @@ def generate_answer(
     except Exception as error:
         raise ChatbotProviderError("The AI assistant could not answer right now.") from error
 
-    answer = response.choices[0].message.content
-    return answer.strip() if answer else "I couldn't form an answer from the available records."
+    import re
+
+    answer = response.choices[0].message.content or ""
+    if not answer.strip() and getattr(response.choices[0].message, "reasoning", None):
+        answer = response.choices[0].message.reasoning or ""
+    answer = re.sub(r"<think>.*?</think>", "", answer, flags=re.DOTALL).strip()
+    return answer if answer else "I couldn't form an answer from the available records."
