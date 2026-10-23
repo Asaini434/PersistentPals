@@ -119,7 +119,9 @@ cp .env.example .env
 uvicorn main:app --reload --port 8000
 ```
 
-Set `DATABASE_URL` and replace `JWT_SECRET` in `backend/.env`. Seeded demo logins are `admin@example.com` and `sarah.jenkins@example.com`; both use `demo-password` after running `database/seed.sql`.
+Set `DATABASE_URL` and replace `JWT_SECRET` in `backend/.env`. The chatbot is configured to use Ollama locally with `qwen3:4b`, so it does not need Hugging Face credits or send records to a hosted model provider. Install Ollama from [ollama.com/download](https://ollama.com/download), then download the model with `ollama pull qwen3:4b`. Keep Ollama running while using the chatbot. Change `CHATBOT_PROVIDER` to `huggingface` only if you want to use a hosted model; hosted inference requires an HF token and `CHATBOT_ALLOW_EXTERNAL_PHI=true`.
+
+Seeded demo logins are `admin@example.com` and `sarah.jenkins@example.com`; both use `demo-password` after running `database/seed.sql`.
 
 ### Test authentication with Postman
 
