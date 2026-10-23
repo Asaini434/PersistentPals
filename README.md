@@ -37,40 +37,44 @@
 
 ```text
 PersistentPals/
-├── index.html                   # HTML entry point (Plus Jakarta Sans font + Title)
-├── package.json                 # Project dependencies and script commands
-├── vite.config.js               # Vite bundler configuration
-├── .env.example                 # Environment variable template
+├── backend/                     # API/backend services
 ├── database/
 │   ├── schema.sql               # PostgreSQL table definitions
 │   └── seed.sql                 # Synthetic sample data
-└── src/
-    ├── main.jsx                 # React DOM mount point
-    ├── App.jsx                  # Root App wrapper with BrowserRouter
-    ├── index.css                # Reflect XR design system & responsive styling
-    ├── components/
-    │   ├── common/
-    │   │   ├── Header.jsx       # Floating navbar with Reflect XR branding & nav links
-    │   │   └── Sidebar.jsx      # Secondary sidebar navigation
-    │   └── layout/
-    │       ├── AuthLayout.jsx   # Centered layout container for login/signup
-    │       └── MainLayout.jsx   # Header + Sidebar layout shell for app pages
-    ├── data/
-    │   └── mockPatients.js      # Mock patient records & clinical log timeline data
-    ├── pages/
-    │   ├── auth/
-    │   │   ├── Login.jsx        # Login page component
-    │   │   └── Signup.jsx       # Signup page component
-    │   ├── logs/
-    │   │   └── Patient-list.jsx # Patient List & Clinical Logs page
-    │   └── patients/
-    │       └── PatientDetail.jsx# Patient Detail & Vitals dashboard page
-    ├── routes/
-    │   └── AppRoutes.jsx        # Application routing table
-    └── services/
-        ├── api.js               # Base fetch client (reads VITE_API_URL)
-        ├── authService.js       # Authentication service endpoints
-        └── patientService.js    # Patient logs & details service endpoints
+├── frontend/                    # React + Vite frontend application
+│   ├── index.html               # HTML entry point (Plus Jakarta Sans font + Title)
+│   ├── package.json             # Project dependencies and script commands
+│   ├── vite.config.js           # Vite bundler configuration
+│   ├── .env.example             # Environment variable template
+│   ├── public/
+│   └── src/
+│       ├── main.jsx             # React DOM mount point
+│       ├── App.jsx              # Root App wrapper with BrowserRouter
+│       ├── index.css            # Reflect XR design system & responsive styling
+│       ├── components/
+│       │   ├── common/
+│       │   │   ├── Header.jsx   # Floating navbar with Reflect XR branding & nav links
+│       │   │   └── Sidebar.jsx  # Secondary sidebar navigation
+│       │   └── layout/
+│       │       ├── AuthLayout.jsx # Centered layout container for login/signup
+│       │       └── MainLayout.jsx # Header + Sidebar layout shell for app pages
+│       ├── data/
+│       │   └── mockPatients.js  # Mock patient records & clinical log timeline data
+│       ├── pages/
+│       │   ├── auth/
+│       │   │   ├── Login.jsx    # Login page component
+│       │   │   └── Signup.jsx   # Signup page component
+│       │   ├── logs/
+│       │   │   └── PatientList.jsx # Patient List & Clinical Logs page
+│       │   └── patients/
+│       │       └── PatientDetail.jsx # Patient Detail & Vitals dashboard page
+│       ├── routes/
+│       │   └── AppRoutes.jsx    # Application routing table
+│       └── services/
+│           ├── api.js           # Base fetch client (reads VITE_API_URL)
+│           ├── authService.js   # Authentication service endpoints
+│           └── patientService.js # Patient logs & details service endpoints
+└── README.md                   # Project overview and setup guide
 ```
 
 ---
@@ -82,11 +86,11 @@ PersistentPals/
 - **npm**: `v10+`
 
 ### 2. Installation & Setup
-Clone the repository and install dependencies:
+Clone the repository and install the frontend dependencies:
 
 ```bash
 git clone https://github.com/Asaini434/PersistentPals.git
-cd PersistentPals
+cd PersistentPals/frontend
 npm install
 ```
 
@@ -102,10 +106,56 @@ Default environment variable:
 VITE_API_URL=http://localhost:8000
 ```
 
-### 4. Running Locally
-Start the development server:
+### Run the FastAPI backend
+
+The API authenticates against `users` and `user_credentials` in PostgreSQL. Passwords are verified against the bcrypt-compatible hashes created by `database/seed.sql`.
 
 ```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn main:app --reload --port 8000
+```
+
+Set `DATABASE_URL` and replace `JWT_SECRET` in `backend/.env`. The chatbot is configured to use Ollama locally with `qwen3:4b`, so it does not need Hugging Face credits or send records to a hosted model provider. Install Ollama from [ollama.com/download](https://ollama.com/download), then download the model with `ollama pull qwen3:4b`. Keep Ollama running while using the chatbot. Change `CHATBOT_PROVIDER` to `huggingface` only if you want to use a hosted model; hosted inference requires an HF token and `CHATBOT_ALLOW_EXTERNAL_PHI=true`.
+
+Seeded demo logins are `admin@example.com` and `sarah.jenkins@example.com`; both use `demo-password` after running `database/seed.sql`.
+
+### Test authentication with Postman
+
+1. Start PostgreSQL and ensure the `reflect` database has been initialized with `database/schema.sql` and `database/seed.sql`.
+2. In `backend/`, create `.env` from `.env.example`, set a working `DATABASE_URL`, and replace `JWT_SECRET` with a long random value.
+3. Install the backend packages with `pip install -r requirements.txt`, then start the API with `python main.py`. Confirm `http://localhost:8000/health` returns `{"status":"ok"}`.
+4. Import `backend/postman/ReflectX Auth.postman_collection.json` into Postman.
+5. Send **Health check** first, then **Login**. The default request uses `admin@example.com` / `demo-password`; a successful response is HTTP 200 with `user` and `access_token` fields. The collection saves the token automatically.
+6. Send **Current user (verify token)** to confirm the bearer token works. Send **Login with invalid password** to verify bad credentials return HTTP 401.
+
+The API also exposes interactive documentation at `http://localhost:8000/docs`.
+
+### Backend API routes
+
+API handlers are grouped under `backend/routes/`. Login accepts either a seeded username or email and returns an eight-hour bearer token. Send that token in `Authorization: Bearer <access_token>` for protected routes.
+
+| Method | Endpoint | Access | Purpose |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/login` | Public | Authenticate with `{ "username": "sjenkins", "password": "demo-password" }`; `email` is also accepted. |
+| `GET` | `/auth/me` | Authenticated | Verify the bearer token and return the logged-in user id and role. |
+| `GET` | `/logs/patient-list` | Provider/Admin | List the caller's assigned patients. Admins may pass `?providerId=<uuid>`. |
+| `GET` | `/providers/{provider_id}/patients` | Provider/Admin | List a provider's assigned patients; providers can only request themselves. |
+| `GET` | `/providers?providerId=<uuid>` | Provider/Admin | Get a provider profile and assigned patients; providers can only request themselves. |
+| `GET` | `/patients/{patient_id}` | Provider/Admin | Get patient demographics, assigned providers, medical history, clinical notes, app sessions, and clinical sessions. |
+| `GET` | `/admin/providers` | Admin | List provider accounts and assigned-patient counts. |
+| `GET` | `/admin/providers/{provider_id}` | Admin | Get one provider and assigned-patient details. |
+
+These endpoints use the existing schema (`users`, `user_credentials`, `assignments`, `patients`, `patient_medical_history`, `provider_notes`, `sessions`, `clinical_sessions`, and `modules`). The schema does not currently store provider addresses, room numbers, or mock licensing/shift metrics, so the APIs do not fabricate those fields.
+
+### 4. Running Locally
+Start the development server from the frontend folder:
+
+```bash
+cd frontend
 npm run dev
 ```
 
@@ -115,12 +165,14 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 To create an optimized production build:
 
 ```bash
+cd frontend
 npm run build
 ```
 
 To preview the built app:
 
 ```bash
+cd frontend
 npm run preview
 ```
 
@@ -140,7 +192,7 @@ npm run preview
 
 ## 🗄️ Database (PostgreSQL)
 
-The database holds **synthetic data only** (no real patient information). It is designed to sit behind the API layer and will be connected to the front end once the API is ready. Until then, the front end runs on `src/data/mockPatients.js`.
+The database holds **synthetic data only** (no real patient information). It is designed to sit behind the API layer and will be connected to the front end once the API is ready. Until then, the front end runs on `frontend/src/data/mockPatients.js`.
 
 ### 1. Prerequisites
 - **PostgreSQL**: `v16` recommended
