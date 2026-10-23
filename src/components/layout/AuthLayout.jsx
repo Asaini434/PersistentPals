@@ -5,7 +5,7 @@ import Header from '../common/Header';
 export default function AuthLayout() {
   return (
     <div className="layout-wrapper auth-wrapper">
-      <Header />
+      <Header hideFloatingNav={true} />
       <main className="auth-container">
         <Outlet />
       </main>

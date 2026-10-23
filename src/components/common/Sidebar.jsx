@@ -11,9 +11,9 @@ export default function Sidebar() {
     <aside className="app-sidebar">
       <div className="sidebar-role-indicator">
         <span className="sidebar-role-title">
-          {isAdmin ? 'Admin Console' : 'Provider Station'}
+          {isAdmin ? 'Practice Admin Console' : 'Clinician Station'}
         </span>
-        <span className="sidebar-user-name">{user?.name || 'Healthcare User'}</span>
+        <span className="sidebar-user-name">{user?.name || 'Mental Health Clinician'}</span>
       </div>
 
       <nav className="sidebar-nav">
@@ -25,11 +25,11 @@ export default function Sidebar() {
               end
               className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
             >
-              📋 Providers Directory
+              👥 Clinicians Directory
             </NavLink>
 
             <div className="sidebar-section-label" style={{ marginTop: '16px' }}>
-              All Providers ({MOCK_PROVIDERS.length})
+              All Clinicians ({MOCK_PROVIDERS.length})
             </div>
             <div className="sidebar-sub-list">
               {MOCK_PROVIDERS.map((p) => (
@@ -51,17 +51,17 @@ export default function Sidebar() {
 
         {isProvider && (
           <>
-            <div className="sidebar-section-label">Clinical Care</div>
+            <div className="sidebar-section-label">Therapy & Caseload</div>
             <NavLink
               to="/logs/patient-list"
               end
               className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
             >
-              📋 Patient Logs List
+              📋 Client Directory & Logs
             </NavLink>
 
             <div className="sidebar-section-label" style={{ marginTop: '16px' }}>
-              Active Patients ({MOCK_PATIENTS.length})
+              Active Clients ({MOCK_PATIENTS.length})
             </div>
             <div className="sidebar-sub-list">
               {MOCK_PATIENTS.map((p) => (
@@ -73,7 +73,7 @@ export default function Sidebar() {
                   <span className="sub-dot"></span>
                   <div className="sub-text-wrapper">
                     <span className="sub-name">{p.name}</span>
-                    <span className="sub-role">{p.room} • {p.status}</span>
+                    <span className="sub-role">{p.status}</span>
                   </div>
                 </NavLink>
               ))}

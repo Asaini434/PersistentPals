@@ -69,13 +69,22 @@ export default function Login() {
     <div className="auth-card-wrapper">
       <div className="auth-page">
         <div className="auth-header">
-          <div className="auth-badge-row">
-            <span className="badge badge-treatment">RESTRICTED ACCESS</span>
-            <span className="pill pill-active">HEALTHCARE OS</span>
+          <div className="auth-brand-badge">
+            <span className="brand-logo-icon" style={{ color: '#f43f5e', display: 'inline-flex', verticalAlign: 'middle', marginRight: '6px' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </span>
+            <span style={{ fontWeight: 800, letterSpacing: '0.08em', color: '#ffffff' }}>REFLECT XR</span>
           </div>
-          <h2>Sign In to ReflectX</h2>
+
+          <div className="auth-badge-row" style={{ marginTop: '10px' }}>
+            <span className="badge badge-treatment">CONFIDENTIAL ACCESS</span>
+            <span className="pill pill-active">MENTAL HEALTH OS</span>
+          </div>
+          <h2 style={{ marginTop: '12px' }}>Sign In to ReflectX</h2>
           <p className="subtitle" style={{ textAlign: 'center', marginBottom: '20px' }}>
-            Select your portal to authenticate with role-restricted credentials
+            Immersive mental wellness & therapy portal. Select your role to authenticate.
           </p>
         </div>
 
@@ -86,16 +95,16 @@ export default function Login() {
             className={`role-tab ${activeTab === 'provider' ? 'active' : ''}`}
             onClick={() => handleFillCredentials('provider')}
           >
-            <div className="role-tab-title">Provider Portal</div>
-            <div className="role-tab-subtitle">Doctors & Clinicians</div>
+            <div className="role-tab-title">Clinician Portal</div>
+            <div className="role-tab-subtitle">Therapists & Psychologists</div>
           </button>
           <button
             type="button"
             className={`role-tab ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => handleFillCredentials('admin')}
           >
-            <div className="role-tab-title">Admin Portal</div>
-            <div className="role-tab-subtitle">Staff & Compliance</div>
+            <div className="role-tab-title">Practice Portal</div>
+            <div className="role-tab-subtitle">Operations & Compliance</div>
           </button>
         </div>
 
@@ -103,7 +112,7 @@ export default function Login() {
         <div className="credentials-helper-card">
           <div className="helper-header">
             <span>
-              Preset Credentials ({activeTab === 'admin' ? 'Admin Portal' : 'Provider Portal'})
+              Preset Credentials ({activeTab === 'admin' ? 'Practice Admin' : 'Lead Clinician'})
             </span>
           </div>
           <div className="helper-body">
@@ -167,13 +176,13 @@ export default function Login() {
             style={{ width: '100%', marginTop: '12px' }}
             disabled={loading}
           >
-            {loading ? 'Authenticating...' : `Enter ${activeTab === 'admin' ? 'Admin' : 'Provider'} Portal →`}
+            {loading ? 'Authenticating...' : `Enter ${activeTab === 'admin' ? 'Practice' : 'Clinician'} Portal →`}
           </button>
         </form>
 
         <div className="auth-footer-note">
           <p>
-            🔒 Enforcing Strict Role-Based Separation. Admin credentials can only access the Providers Chain, and Provider credentials can only access the Patients Chain.
+            🔒 Enforcing Strict HIPAA & HITECH Client Confidentiality. Clinician credentials access Client Therapy Tracks; Admin credentials access the Clinicians Directory.
           </p>
         </div>
       </div>

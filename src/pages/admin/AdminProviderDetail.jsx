@@ -3,9 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MOCK_PROVIDERS } from '../../data/mockProviders';
 
 /**
- * Admin: Provider Detail Page Component
- * Renders individual details, credentials, schedules, and assigned patients
- * for ANY selected provider.
+ * Admin: Clinician Detail Page Component
+ * Renders individual credentials, clinical schedules, and active client caseloads.
  */
 export default function AdminProviderDetail() {
   const { id } = useParams();
@@ -42,7 +41,7 @@ export default function AdminProviderDetail() {
 
     const newEntry = {
       timestamp,
-      author: 'System Admin (Current Session)',
+      author: 'Clinical Supervisor (Current Session)',
       note: newAuditNote.trim(),
     };
 
@@ -69,19 +68,18 @@ export default function AdminProviderDetail() {
     }
   };
 
-  const getPatientStatusBadgeClass = (status) => {
-    switch (status.toLowerCase()) {
-      case 'admitted':
-        return 'badge badge-admitted';
-      case 'in treatment':
-        return 'badge badge-treatment';
-      case 'observation':
-        return 'badge badge-observation';
-      case 'discharged':
-        return 'badge badge-discharged';
-      default:
-        return 'badge';
+  const getPatientStatusBadgeClass = (status = '') => {
+    const s = status.toLowerCase();
+    if (s.includes('active') || s.includes('treatment') || s.includes('admitted')) {
+      return 'badge badge-treatment';
     }
+    if (s.includes('maintenance') || s.includes('observation')) {
+      return 'badge badge-observation';
+    }
+    if (s.includes('completed') || s.includes('discharged')) {
+      return 'badge badge-discharged';
+    }
+    return 'badge';
   };
 
   return (
@@ -89,10 +87,10 @@ export default function AdminProviderDetail() {
       {/* Top Navigation Row */}
       <div className="detail-top-nav" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <Link to="/admin/providers" className="btn-back">
-          <span className="back-arrow">←</span> Back to Providers Directory
+          <span className="back-arrow">←</span> Back to Clinicians Directory
         </Link>
 
-        {/* Previous / Next Provider Jump Buttons */}
+        {/* Previous / Next Clinician Jump Buttons */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             type="button"
@@ -115,9 +113,9 @@ export default function AdminProviderDetail() {
         </div>
       </div>
 
-      {/* Quick All-Providers Switcher Bar */}
+      {/* Quick All-Clinicians Switcher Bar */}
       <div className="provider-switcher-container">
-        <span className="switcher-label">Switch Provider View:</span>
+        <span className="switcher-label">Switch Clinician Overview:</span>
         <div className="switcher-pills">
           {MOCK_PROVIDERS.map((p) => (
             <button
@@ -133,7 +131,7 @@ export default function AdminProviderDetail() {
         </div>
       </div>
 
-      {/* Provider Header Banner */}
+      {/* Clinician Header Banner */}
       <div className="patient-card-header" style={{ marginTop: '20px' }}>
         <div className="patient-title-group">
           <h2>{activeProvider.name}</h2>
@@ -149,7 +147,7 @@ export default function AdminProviderDetail() {
             <strong>Department:</strong> {activeProvider.department}
           </span>
           <span>
-            <strong>Office:</strong> {activeProvider.office}
+            <strong>Suite:</strong> {activeProvider.office}
           </span>
           <span>
             <strong>Phone:</strong> {activeProvider.phone}
@@ -162,26 +160,26 @@ export default function AdminProviderDetail() {
 
       {/* Clinical Metrics Summary Grid */}
       <section className="detail-section">
-        <h3>Provider Operations & Metrics</h3>
+        <h3>Clinician Practice & Caseload Metrics</h3>
         <div className="vitals-grid">
           <div className="vital-card">
-            <span className="vital-label">Active Patients</span>
+            <span className="vital-label">Active Clients</span>
             <span className="vital-value">{activeProvider.metrics.activePatientsCount}</span>
           </div>
           <div className="vital-card">
-            <span className="vital-label">Weekly Shift Hours</span>
+            <span className="vital-label">Weekly Therapy Hours</span>
             <span className="vital-value">{activeProvider.metrics.weeklyShiftHours} hrs</span>
           </div>
           <div className="vital-card">
-            <span className="vital-label">Procedures / Month</span>
+            <span className="vital-label">XR Sessions / Month</span>
             <span className="vital-value">{activeProvider.metrics.proceduresMonth}</span>
           </div>
           <div className="vital-card">
-            <span className="vital-label">Patient Rating</span>
+            <span className="vital-label">Client Satisfaction</span>
             <span className="vital-value">{activeProvider.metrics.satisfactionRating} / 5.0</span>
           </div>
           <div className="vital-card">
-            <span className="vital-label">Clinical Experience</span>
+            <span className="vital-label">Practice Experience</span>
             <span className="vital-value">{activeProvider.experienceYears} Years</span>
           </div>
         </div>
@@ -189,14 +187,14 @@ export default function AdminProviderDetail() {
 
       {/* Main Details Grid */}
       <div className="detail-layout">
-        {/* Left Column: Credentials & Assigned Patients */}
+        {/* Left Column: Credentials & Assigned Clients */}
         <div className="detail-column main-col">
-          {/* Medical Credentials & Licensing Card */}
+          {/* Clinical Credentials & Licensing Card */}
           <section className="detail-section card">
-            <h3>Medical Credentials & Licensure</h3>
+            <h3>Clinical Credentials & Licensure</h3>
             <div className="info-grid">
               <div className="info-item">
-                <label>State Medical License</label>
+                <label>State Clinical License</label>
                 <p style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent-coral)' }}>
                   {activeProvider.licenseNumber}
                 </p>
@@ -208,11 +206,11 @@ export default function AdminProviderDetail() {
                 </p>
               </div>
               <div className="info-item">
-                <label>Medical School</label>
+                <label>Doctoral / Medical School</label>
                 <p>{activeProvider.education.medicalSchool}</p>
               </div>
               <div className="info-item">
-                <label>Residency Training</label>
+                <label>Residency / Clinical Training</label>
                 <p>{activeProvider.education.residency}</p>
               </div>
               <div className="info-item full-width">
@@ -220,7 +218,7 @@ export default function AdminProviderDetail() {
                 <p>{activeProvider.education.fellowship}</p>
               </div>
               <div className="info-item full-width">
-                <label>Official Board Certifications</label>
+                <label>Official Board Certifications & Accreditations</label>
                 <div className="allergy-tags" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
                   {activeProvider.education.boardCertifications.map((cert, i) => (
                     <span
@@ -240,10 +238,10 @@ export default function AdminProviderDetail() {
             </div>
           </section>
 
-          {/* Assigned Inpatients Table */}
+          {/* Assigned Clients Table */}
           <section className="detail-section card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, border: 'none' }}>Assigned Inpatients Under Direct Care</h3>
+              <h3 style={{ margin: 0, border: 'none' }}>Assigned Clients in Active Therapy</h3>
               <span className="pill pill-active">
                 {activeProvider.assignedPatients.length} Active
               </span>
@@ -251,18 +249,18 @@ export default function AdminProviderDetail() {
 
             {activeProvider.assignedPatients.length === 0 ? (
               <p style={{ color: 'var(--text-muted)', padding: '16px 0' }}>
-                No active inpatient admissions currently assigned to this physician.
+                No active clients currently assigned to this clinician.
               </p>
             ) : (
               <div className="patient-table-container" style={{ marginTop: '12px' }}>
                 <table className="patient-table" style={{ fontSize: '0.9rem' }}>
                   <thead>
                     <tr>
-                      <th>Patient</th>
-                      <th>Room</th>
-                      <th>Diagnosis</th>
-                      <th>Status</th>
-                      <th>Admitted</th>
+                      <th>Client</th>
+                      <th>Suite / Track</th>
+                      <th>Clinical Formulation</th>
+                      <th>Care Status</th>
+                      <th>Intake Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -295,7 +293,7 @@ export default function AdminProviderDetail() {
         <div className="detail-column side-col">
           {/* Shift Schedule Card */}
           <section className="detail-section card">
-            <h3>Clinical Schedule & Shift Roster</h3>
+            <h3>Therapy Schedule & XR Roster</h3>
             <div className="shift-schedule-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {activeProvider.schedule.map((shift, idx) => (
                 <div
@@ -321,17 +319,17 @@ export default function AdminProviderDetail() {
 
           {/* Admin Audit Trail & Entry Form */}
           <section className="detail-section card">
-            <h3>Admin & Compliance Audit Logs</h3>
+            <h3>Clinical Supervision & Audit Logs</h3>
 
             <form onSubmit={handleAddAuditNote} className="add-log-form">
               <textarea
                 rows="3"
-                placeholder={`Log an administrative note for ${activeProvider.name}...`}
+                placeholder={`Log a supervisory note for ${activeProvider.name}...`}
                 value={newAuditNote}
                 onChange={(e) => setNewAuditNote(e.target.value)}
               />
               <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-                Record Admin Audit Note
+                Record Supervisory Audit Note
               </button>
             </form>
 

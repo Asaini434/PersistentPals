@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { MOCK_PATIENTS } from '../../data/mockPatients';
 
 /**
- * Logs / Patient List Page Component
+ * Mental Health Client Directory & Therapy Logs Component
  */
 export default function PatientList() {
   const [patients] = useState(MOCK_PATIENTS);
@@ -12,42 +12,49 @@ export default function PatientList() {
   const navigate = useNavigate();
 
   const filteredPatients = patients.filter((patient) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      patient.name.toLowerCase().includes(term) ||
+      patient.id.toLowerCase().includes(term) ||
+      patient.diagnosis.toLowerCase().includes(term) ||
+      (patient.careTrack && patient.careTrack.toLowerCase().includes(term));
+
     const matchesStatus =
-      statusFilter === 'All' || patient.status.toLowerCase() === statusFilter.toLowerCase();
+      statusFilter === 'All' || patient.status.toLowerCase().includes(statusFilter.toLowerCase());
 
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusBadgeClass = (status) => {
-    switch (status.toLowerCase()) {
-      case 'admitted':
-        return 'badge badge-admitted';
-      case 'in treatment':
-        return 'badge badge-treatment';
-      case 'observation':
-        return 'badge badge-observation';
-      case 'discharged':
-        return 'badge badge-discharged';
-      default:
-        return 'badge';
+  const getStatusBadgeClass = (status = '') => {
+    const s = status.toLowerCase();
+    if (s.includes('active') || s.includes('treatment') || s.includes('admitted')) {
+      return 'badge badge-treatment';
     }
+    if (s.includes('maintenance') || s.includes('observation')) {
+      return 'badge badge-observation';
+    }
+    if (s.includes('completed') || s.includes('discharged')) {
+      return 'badge badge-discharged';
+    }
+    return 'badge';
   };
+
+  const activeCount = patients.filter(
+    (p) => !p.status.toLowerCase().includes('completed') && !p.status.toLowerCase().includes('discharged')
+  ).length;
 
   return (
     <div className="page-container patient-list-page">
       <header className="page-header">
         <div>
-          <h2>Patient List & Clinical Logs</h2>
-          <p className="subtitle">Real-time overview of active hospital patients and recent clinical updates</p>
+          <h2>Client Directory & Therapy Logs</h2>
+          <p className="subtitle">
+            Real-time clinical overview of active mental health clients, XR therapy tracks, and session progress
+          </p>
         </div>
         <div className="stats-pills">
-          <span className="pill">Total: {patients.length}</span>
-          <span className="pill pill-active">Active: {patients.filter(p => p.status !== 'Discharged').length}</span>
+          <span className="pill">Total Clients: {patients.length}</span>
+          <span className="pill pill-active">Active in Care: {activeCount}</span>
         </div>
       </header>
 
@@ -55,7 +62,7 @@ export default function PatientList() {
         <div className="search-box">
           <input
             type="text"
-            placeholder="Search by ID, name, or diagnosis..."
+            placeholder="Search by client ID, name, diagnosis, or care track..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -63,11 +70,10 @@ export default function PatientList() {
 
         <div className="filter-box">
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="All">All Statuses</option>
-            <option value="Admitted">Admitted</option>
-            <option value="In Treatment">In Treatment</option>
-            <option value="Observation">Observation</option>
-            <option value="Discharged">Discharged</option>
+            <option value="All">All Care Statuses</option>
+            <option value="Active Therapy">Active Therapy</option>
+            <option value="Maintenance Phase">Maintenance Phase</option>
+            <option value="Program Completed">Program Completed</option>
           </select>
         </div>
       </div>
@@ -76,33 +82,45 @@ export default function PatientList() {
         <table className="patient-table">
           <thead>
             <tr>
-              <th>Patient ID</th>
-              <th>Name</th>
-              <th>Age / Gender</th>
-              <th>Room</th>
-              <th>Diagnosis</th>
-              <th>Status</th>
+              <th>Client ID</th>
+              <th>Client Name</th>
+              <th>Age / Pronouns</th>
+              <th>Therapy Track & Location</th>
+              <th>Primary Clinical Formulation</th>
+              <th>Care Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredPatients.length === 0 ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>
-                  No matching patients found.
+                <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem' }}>
+                  No matching clients found in directory.
                 </td>
               </tr>
             ) : (
               filteredPatients.map((patient) => (
-                <tr key={patient.id}>
+                <tr key={patient.id} className="clickable-provider-row" onClick={() => navigate(`/patients/${patient.id}`)}>
                   <td className="patient-id">{patient.id}</td>
                   <td className="patient-name">
                     <strong>{patient.name}</strong>
                     <div className="sub-text">{patient.email}</div>
                   </td>
-                  <td>{patient.age} y/o ({patient.gender})</td>
-                  <td>{patient.room}</td>
-                  <td className="diagnosis-cell">{patient.diagnosis}</td>
+                  <td>
+                    {patient.age} y/o{' '}
+                    <span className="sub-text">({patient.pronouns || patient.gender})</span>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: 600, color: '#e2e8f0', fontSize: '0.85rem' }}>
+                      {patient.room}
+                    </div>
+                    <div className="sub-text" style={{ fontSize: '0.72rem', color: '#fb7185' }}>
+                      {patient.careTrack ? patient.careTrack.split(':')[0] : 'XR Track'}
+                    </div>
+                  </td>
+                  <td className="diagnosis-cell">
+                    <span style={{ color: '#f8fafc', fontWeight: 600 }}>{patient.diagnosis}</span>
+                  </td>
                   <td>
                     <span className={getStatusBadgeClass(patient.status)}>
                       {patient.status}
@@ -110,10 +128,13 @@ export default function PatientList() {
                   </td>
                   <td>
                     <button
-                      className="btn-secondary"
-                      onClick={() => navigate(`/patients/${patient.id}`)}
+                      className="btn-view-details-action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/patients/${patient.id}`);
+                      }}
                     >
-                      View Details
+                      View Profile →
                     </button>
                   </td>
                 </tr>
