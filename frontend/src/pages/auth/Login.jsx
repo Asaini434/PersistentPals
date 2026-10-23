@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, PRESET_CREDENTIALS } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Modern Role-Based Login Component
@@ -24,20 +24,9 @@ export default function Login() {
     setLocalError('');
   };
 
-  const handleFillCredentials = (role) => {
+  const handleSelectRole = (role) => {
     setActiveTab(role);
     setLocalError('');
-    if (role === 'admin') {
-      setFormData({
-        email: PRESET_CREDENTIALS.admin.email,
-        password: PRESET_CREDENTIALS.admin.password,
-      });
-    } else {
-      setFormData({
-        email: PRESET_CREDENTIALS.provider.email,
-        password: PRESET_CREDENTIALS.provider.password,
-      });
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -93,7 +82,7 @@ export default function Login() {
           <button
             type="button"
             className={`role-tab ${activeTab === 'provider' ? 'active' : ''}`}
-            onClick={() => handleFillCredentials('provider')}
+            onClick={() => handleSelectRole('provider')}
           >
             <div className="role-tab-title">Clinician Portal</div>
             <div className="role-tab-subtitle">Therapists & Psychologists</div>
@@ -101,36 +90,10 @@ export default function Login() {
           <button
             type="button"
             className={`role-tab ${activeTab === 'admin' ? 'active' : ''}`}
-            onClick={() => handleFillCredentials('admin')}
+            onClick={() => handleSelectRole('admin')}
           >
             <div className="role-tab-title">Practice Portal</div>
             <div className="role-tab-subtitle">Operations & Compliance</div>
-          </button>
-        </div>
-
-        {/* Quick Credentials Info Card */}
-        <div className="credentials-helper-card">
-          <div className="helper-header">
-            <span>
-              Preset Credentials ({activeTab === 'admin' ? 'Practice Admin' : 'Lead Clinician'})
-            </span>
-          </div>
-          <div className="helper-body">
-            <div>
-              <strong>Email:</strong>{' '}
-              <code>{activeTab === 'admin' ? PRESET_CREDENTIALS.admin.email : PRESET_CREDENTIALS.provider.email}</code>
-            </div>
-            <div>
-              <strong>Password:</strong>{' '}
-              <code>{activeTab === 'admin' ? PRESET_CREDENTIALS.admin.password : PRESET_CREDENTIALS.provider.password}</code>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn-quick-fill"
-            onClick={() => handleFillCredentials(activeTab)}
-          >
-            Auto-Fill These Credentials
           </button>
         </div>
 

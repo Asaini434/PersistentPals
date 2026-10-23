@@ -1,0 +1,10 @@
+ADMIN
+  admin@example.com                 (username: admin)
+
+THERAPISTS
+  sarah.jenkins@example.com         (username: sjenkins)  Clinical Psychologist, Anxiety & Mood Disorders
+  robert.miller@example.com         (username: rmiller)   Psychiatrist, Depression & Mood
+  amanda.chen@example.com           (username: achen)     Clinical Psychologist, Trauma & PTSD
+  david.ross@example.com            (username: dross)     Art Therapist, Expressive & Creative Arts
+
+Password for all: demo-password
