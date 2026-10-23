@@ -2,6 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
 
+const formatWhen = (value) =>
+  value
+    ? new Date(value).toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : '';
+
 /**
  * Client Detail Page
  * Backed by GET /patients/{patient_id}, with GET /logs/patient-list
@@ -15,6 +26,17 @@ export default function PatientDetail() {
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // "Add note" form
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteSession, setNoteSession] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState('');
+
+  // "Log communication" form
+  const [comm, setComm] = useState({ direction: 'Outbound', channel: 'Email', minutes: 0, summary: '' });
+  const [commSaving, setCommSaving] = useState(false);
+  const [commError, setCommError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -62,6 +84,45 @@ export default function PatientDetail() {
         return 'badge badge-discharged';
       default:
         return 'badge';
+    }
+  };
+
+  const handleAddNote = async (e) => {
+    e.preventDefault();
+    if (!noteDraft.trim()) return;
+    setNoteSaving(true);
+    setNoteError('');
+    try {
+      const created = await patientService.addNote(id, {
+        content: noteDraft.trim(),
+        clinical_session_id: noteSession,
+      });
+      setPatient((prev) => ({ ...prev, logs: [created, ...(prev.logs || [])] }));
+      setNoteDraft('');
+      setNoteSession('');
+    } catch (err) {
+      setNoteError(err.message || 'Unable to save the note.');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const handleLogCommunication = async (e) => {
+    e.preventDefault();
+    if (!comm.summary.trim()) return;
+    setCommSaving(true);
+    setCommError('');
+    try {
+      const created = await patientService.addCommunication(id, {
+        ...comm,
+        summary: comm.summary.trim(),
+      });
+      setPatient((prev) => ({ ...prev, communications: [created, ...(prev.communications || [])] }));
+      setComm((prev) => ({ ...prev, minutes: 0, summary: '' }));
+    } catch (err) {
+      setCommError(err.message || 'Unable to log the communication.');
+    } finally {
+      setCommSaving(false);
     }
   };
 
@@ -236,14 +297,59 @@ export default function PatientDetail() {
                   <div key={idx} className="narrative-history-box" style={{ marginBottom: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                       <strong>{entry.condition}</strong>
-                      <span className={getStatusBadgeClass(entry.status)}>{entry.status}</span>
+                      <span className="badge-group">
+                        {entry.severity && (
+                          <span className={`severity-badge severity-${entry.severity.toLowerCase()}`}>
+                            {entry.severity}
+                          </span>
+                        )}
+                        <span className={getStatusBadgeClass(entry.status)}>{entry.status}</span>
+                      </span>
                     </div>
                     <div className="sub-text" style={{ marginBottom: '4px' }}>
-                      Onset: {entry.onset_date || 'Unknown'} • Recorded: {entry.date_created}
+                      Onset: {entry.onset_date || 'Unknown'} • In treatment since:{' '}
+                      {entry.treatment_start_date || 'Unknown'}
                     </div>
                     {entry.notes && <p style={{ margin: 0 }}>{entry.notes}</p>}
                   </div>
                 ))}
+              </div>
+            )}
+          </section>
+
+          <section className="detail-section card">
+            <div className="profile-card-header">
+              <div>
+                <h3>Medications</h3>
+                <p className="profile-subtitle">Current and past prescriptions on record</p>
+              </div>
+            </div>
+            {!patient.medications?.length ? (
+              <p style={{ color: 'var(--text-muted)' }}>No medications recorded (therapy only).</p>
+            ) : (
+              <div className="patient-table-container">
+                <table className="patient-table" style={{ fontSize: '0.9rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Medication</th>
+                      <th>Dose</th>
+                      <th>Frequency</th>
+                      <th>Started</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {patient.medications.map((med) => (
+                      <tr key={med.id}>
+                        <td>{med.name}</td>
+                        <td>{med.dosage}</td>
+                        <td>{med.frequency}</td>
+                        <td>{med.started_on || 'Unknown'}</td>
+                        <td>{med.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </section>
@@ -351,10 +457,112 @@ export default function PatientDetail() {
           <section className="detail-section card">
             <div className="profile-card-header">
               <div>
+                <h3>Communication Log</h3>
+                <p className="profile-subtitle">Messages with this client that happened outside the app</p>
+              </div>
+            </div>
+
+            <form className="inline-form" onSubmit={handleLogCommunication}>
+              <div className="inline-form-row">
+                <select
+                  value={comm.direction}
+                  onChange={(e) => setComm((prev) => ({ ...prev, direction: e.target.value }))}
+                  aria-label="Direction"
+                >
+                  <option value="Outbound">Sent to client</option>
+                  <option value="Inbound">Received from client</option>
+                </select>
+                <select
+                  value={comm.channel}
+                  onChange={(e) => setComm((prev) => ({ ...prev, channel: e.target.value }))}
+                  aria-label="Channel"
+                >
+                  <option value="Email">Email</option>
+                  <option value="Text">Text</option>
+                  <option value="Phone">Phone</option>
+                  <option value="Portal">Portal</option>
+                  <option value="Other">Other</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={comm.minutes}
+                  onChange={(e) => setComm((prev) => ({ ...prev, minutes: e.target.value }))}
+                  aria-label="Minutes spent"
+                  title="Minutes spent"
+                  className="inline-minutes"
+                />
+              </div>
+              <textarea
+                rows={2}
+                maxLength={1000}
+                placeholder="What was discussed?"
+                value={comm.summary}
+                onChange={(e) => setComm((prev) => ({ ...prev, summary: e.target.value }))}
+              />
+              <div className="inline-form-row inline-form-actions">
+                <button type="submit" className="btn-primary" disabled={commSaving || !comm.summary.trim()}>
+                  {commSaving ? 'Saving…' : 'Log Communication'}
+                </button>
+              </div>
+              {commError && <div className="inline-form-error">{commError}</div>}
+            </form>
+
+            <div className="logs-timeline">
+              {!patient.communications?.length ? (
+                <p style={{ color: 'var(--text-muted)' }}>No communication logged yet.</p>
+              ) : (
+                patient.communications.map((item) => (
+                  <div key={item.id} className="log-entry mental-log-entry">
+                    <div className="log-header-row">
+                      <span className="log-timestamp">{formatWhen(item.started_at)}</span>
+                      <span className="log-session-badge">
+                        {item.direction === 'Inbound' ? 'From client' : 'To client'} · {item.channel}
+                      </span>
+                    </div>
+                    <p className="log-text">{item.summary}</p>
+                    <div className="sub-text">
+                      — {item.provider_name}
+                      {item.duration_seconds ? ` · ${Math.round(item.duration_seconds / 60)} min` : ''}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="detail-section card">
+            <div className="profile-card-header">
+              <div>
                 <h3>Clinical Notes & Logs</h3>
                 <p className="profile-subtitle">Provider-entered record</p>
               </div>
             </div>
+
+            <form className="inline-form" onSubmit={handleAddNote}>
+              <textarea
+                rows={3}
+                maxLength={4000}
+                placeholder="Add a progress note or observation…"
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+              />
+              <div className="inline-form-row">
+                <select value={noteSession} onChange={(e) => setNoteSession(e.target.value)} aria-label="Link to a therapy session">
+                  <option value="">General note (not tied to a session)</option>
+                  {(patient.clinical_sessions || []).map((session) => (
+                    <option key={session.id} value={session.id}>
+                      Session {session.session_date} · {session.mode}
+                    </option>
+                  ))}
+                </select>
+                <button type="submit" className="btn-primary" disabled={noteSaving || !noteDraft.trim()}>
+                  {noteSaving ? 'Saving…' : 'Add Note'}
+                </button>
+              </div>
+              {noteError && <div className="inline-form-error">{noteError}</div>}
+            </form>
 
             <div className="logs-timeline">
               {!patient.logs?.length ? (
@@ -363,7 +571,7 @@ export default function PatientDetail() {
                 patient.logs.map((log) => (
                   <div key={log.id} className="log-entry mental-log-entry">
                     <div className="log-header-row">
-                      <span className="log-timestamp">{log.timestamp}</span>
+                      <span className="log-timestamp">{formatWhen(log.timestamp)}</span>
                       <span className="log-session-badge">{log.type || 'Note'}</span>
                     </div>
                     <p className="log-text">{log.note}</p>

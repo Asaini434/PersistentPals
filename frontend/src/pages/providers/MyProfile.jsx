@@ -92,7 +92,7 @@ export default function MyProfile() {
                 <strong>Email:</strong> {profile.email}
               </span>
               <span>
-                <strong>Last Login:</strong> {profile.last_login_at || 'Never'}
+                <strong>Last Login:</strong> {profile.last_login_at ? new Date(profile.last_login_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Never'}
               </span>
             </div>
           </div>
@@ -106,7 +106,7 @@ export default function MyProfile() {
               </div>
               <div className="vital-card">
                 <span className="vital-label">Account Created</span>
-                <span className="vital-value" style={{ fontSize: '1rem' }}>{profile.date_created}</span>
+                <span className="vital-value" style={{ fontSize: '1rem' }}>{profile.date_created ? new Date(profile.date_created).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown'}</span>
               </div>
             </div>
           </section>

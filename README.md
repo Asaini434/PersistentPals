@@ -9,11 +9,13 @@
 - **🔐 Centered Auth Portal**: Login (username or email) and Signup screens with JWT-based sessions and role-based routing (Provider vs Admin).
 - **📋 Provider Patient List**: Searchable table of a provider's assigned clients with diagnosis, status (`Active`, `Chronic`, `Resolved`) and filtering.
 - **🧠 Patient Detail**:
-  - Demographics, assigned providers and diagnosis history.
-  - Therapy sessions (remote or in person) and provider notes / trend logs.
+  - Demographics, assigned providers and diagnosis history with severity and time in treatment.
+  - Medications on record.
+  - Therapy sessions (remote or in person) and provider notes / trend logs, with an **Add Note** form (optionally linked to a therapy session).
+  - **Communication Log** for asynchronous provider/client contact that happened on another channel (email, text, phone, portal), with direction, minutes and a summary.
   - Reflect XR and Reflect Mobile app usage, with session length and module.
 - **👤 My Profile**: A provider's own profile and assigned patients.
-- **🛡️ Admin Views**: Provider list and provider detail pages with assigned-patient counts.
+- **🛡️ Admin Views**: Provider list and provider detail pages with assigned-patient counts, plus a **Daily Activity** view per provider (pick any date): therapy sessions with start and end times, clients met, new notes written, and time spent per client. A 30-day view shows monitoring time per client against the monthly target. Admins see counts and client names, not note text.
 - **🤖 AI Chat Widget**: Floating, role-aware assistant that answers only from the logged-in user's permitted data. Runs on a local Ollama model by default, so records are not sent to a hosted provider.
 - **🎨 Reflect XR Design System**: Plus Jakarta Sans, ambient glow background, sunset color scheme (`#f43f5e`, `#ec4899`, `#a855f7`), floating pill navigation, color-coded status badges.
 
@@ -95,6 +97,14 @@ VITE_API_URL=http://localhost:8000
 ### 4. Build the database
 Do this before starting the backend. See the **Database** section below.
 
+### Every time you work on the app
+Run each of these in its own terminal and leave them open:
+
+1. **PostgreSQL**: normally already running (`brew services start postgresql@16` once).
+2. **Backend**: `cd backend && source .venv/bin/activate && uvicorn main:app --reload --port 8000`
+3. **Frontend**: `cd frontend && npm run dev`, then open [http://localhost:5173](http://localhost:5173).
+4. **Ollama** (only for the AI chat): open the Ollama app, or run `ollama serve`. The chat widget shows an error if it is not running.
+
 ### 5. Run the FastAPI backend
 
 The API authenticates against `users` and `user_credentials` in PostgreSQL. Passwords are verified against the bcrypt-compatible hashes created by `database/seed.sql`.
@@ -110,15 +120,15 @@ uvicorn main:app --reload --port 8000
 
 Set `DATABASE_URL` and replace `JWT_SECRET` in `backend/.env`. The chatbot is configured to use Ollama locally with `qwen3:4b`, so it does not need Hugging Face credits or send records to a hosted model provider. Install Ollama from [ollama.com/download](https://ollama.com/download), then download the model with `ollama pull qwen3:4b`. Keep Ollama running while using the chatbot. Change `CHATBOT_PROVIDER` to `huggingface` only if you want to use a hosted model; hosted inference requires an HF token and `CHATBOT_ALLOW_EXTERNAL_PHI=true`.
 
-**Demo logins** (password `demo-password` for all):
+**Demo logins** (password `demo-password` for all). On the login form, enter the email address; the API itself also accepts the username.
 
-| Username | Role |
-| :--- | :--- |
-| `admin` | Admin |
-| `sjenkins` | Provider (Clinical Psychologist) |
-| `rmiller` | Provider (Psychiatrist) |
-| `achen` | Provider (Clinical Psychologist) |
-| `dross` | Provider (Art Therapist) |
+| Email | Username | Role |
+| :--- | :--- | :--- |
+| `admin@example.com` | `admin` | Admin |
+| `sarah.jenkins@example.com` | `sjenkins` | Provider (Clinical Psychologist) |
+| `robert.miller@example.com` | `rmiller` | Provider (Psychiatrist) |
+| `amanda.chen@example.com` | `achen` | Provider (Clinical Psychologist) |
+| `david.ross@example.com` | `dross` | Provider (Art Therapist) |
 
 ### 6. Test authentication
 
@@ -140,9 +150,12 @@ API handlers are grouped under `backend/routes/`. Login accepts either a seeded 
 | `GET` | `/logs/patient-list` | Provider/Admin | List the caller's assigned patients. Admins may pass `?providerId=<uuid>`. |
 | `GET` | `/providers/{provider_id}/patients` | Provider/Admin | List a provider's assigned patients; providers can only request themselves. |
 | `GET` | `/providers?providerId=<uuid>` | Provider/Admin | Get a provider profile and assigned patients; providers can only request themselves. |
-| `GET` | `/patients/{patient_id}` | Provider/Admin | Get patient demographics, assigned providers, diagnosis history, notes, app sessions, and therapy sessions. |
+| `GET` | `/patients/{patient_id}` | Provider/Admin | Get patient demographics, assigned providers, diagnosis history (with severity), medications, notes, communications, app sessions, and therapy sessions. |
+| `POST` | `/patients/{patient_id}/notes` | Assigned provider | Add a note. With `clinical_session_id` it is saved as a session note, otherwise as a trend log. |
+| `POST` | `/patients/{patient_id}/communications` | Assigned provider | Log an async provider/client exchange (`direction`, `channel`, `minutes`, `summary`). |
 | `GET` | `/admin/providers` | Admin | List provider accounts and assigned-patient counts. |
-| `GET` | `/admin/providers/{provider_id}` | Admin | Get one provider and assigned-patient details. |
+| `GET` | `/admin/providers/{provider_id}` | Admin | Get one provider, assigned patients and a 30-day activity summary. |
+| `GET` | `/admin/providers/{provider_id}/activity?date=YYYY-MM-DD&tz=America/New_York` | Admin | One day of a provider's work: therapy sessions with start and end, notes written, time per client. |
 | `GET` | `/chat/messages` | Provider/Admin | Recent chat history for the logged-in user. |
 | `POST` | `/chat/messages` | Provider/Admin | Send a message to the AI assistant and receive its reply. |
 | `DELETE` | `/chat/messages` | Provider/Admin | Clear the logged-in user's chat history (soft delete). |
@@ -238,6 +251,9 @@ The script runs these files in order (you can also run them yourself with `psql 
 5. `database/seed/seed_engagement.sql`
 6. `database/seed/seed_clinical.sql`
 7. `database/seed/seed_rtm.sql`
+8. `database/seed/seed_today.sql`
+
+Most seed data is dated relative to the day you run it. `seed_today.sql` adds therapy sessions, reviews and notes for **today**, so run it again (`psql reflect -f database/seed/seed_today.sql`) on the morning of a demo so the admin Daily Activity view has current data. It is safe to rerun.
 
 With Docker, pipe each file through the container, for example:
 
