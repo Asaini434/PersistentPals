@@ -1,11 +1,45 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { MOCK_PROVIDERS } from '../../data/mockProviders';
-import { MOCK_PATIENTS } from '../../data/mockPatients';
+import { adminService } from '../../services/adminService';
+import { patientService } from '../../services/patientService';
 
 export default function Sidebar() {
   const { isAdmin, isProvider, user } = useAuth();
+  const [providers, setProviders] = useState([]);
+  const [patients, setPatients] = useState([]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    adminService
+      .getProviders()
+      .then((data) => {
+        if (active) setProviders(data || []);
+      })
+      .catch(() => {
+        /* nav sub-list is a nice-to-have; failures are silent here */
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isProvider) return;
+    let active = true;
+    patientService
+      .getPatientLogs()
+      .then((data) => {
+        if (active) setPatients(data || []);
+      })
+      .catch(() => {
+        /* nav sub-list is a nice-to-have; failures are silent here */
+      });
+    return () => {
+      active = false;
+    };
+  }, [isProvider]);
 
   return (
     <aside className="app-sidebar">
@@ -29,10 +63,10 @@ export default function Sidebar() {
             </NavLink>
 
             <div className="sidebar-section-label" style={{ marginTop: '16px' }}>
-              All Clinicians ({MOCK_PROVIDERS.length})
+              All Clinicians ({providers.length})
             </div>
             <div className="sidebar-sub-list">
-              {MOCK_PROVIDERS.map((p) => (
+              {providers.map((p) => (
                 <NavLink
                   key={p.id}
                   to={`/admin/providers/${p.id}`}
@@ -41,7 +75,7 @@ export default function Sidebar() {
                   <span className="sub-dot"></span>
                   <div className="sub-text-wrapper">
                     <span className="sub-name">{p.name}</span>
-                    <span className="sub-role">{p.department}</span>
+                    <span className="sub-role">{p.specialty || p.title}</span>
                   </div>
                 </NavLink>
               ))}
@@ -61,10 +95,10 @@ export default function Sidebar() {
             </NavLink>
 
             <div className="sidebar-section-label" style={{ marginTop: '16px' }}>
-              Active Clients ({MOCK_PATIENTS.length})
+              Active Clients ({patients.length})
             </div>
             <div className="sidebar-sub-list">
-              {MOCK_PATIENTS.map((p) => (
+              {patients.map((p) => (
                 <NavLink
                   key={p.id}
                   to={`/patients/${p.id}`}
@@ -73,7 +107,7 @@ export default function Sidebar() {
                   <span className="sub-dot"></span>
                   <div className="sub-text-wrapper">
                     <span className="sub-name">{p.name}</span>
-                    <span className="sub-role">{p.status}</span>
+                    <span className="sub-role">{p.status || 'No record'}</span>
                   </div>
                 </NavLink>
               ))}

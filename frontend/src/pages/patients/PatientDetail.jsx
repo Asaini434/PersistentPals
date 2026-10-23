@@ -1,69 +1,97 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MOCK_PATIENTS } from '../../data/mockPatients';
+import { patientService } from '../../services/patientService';
 
 /**
- * Mental Health Client Detail Component
- * Displays individual psychological formulation, biometric affect metrics,
- * therapeutic goals, emotional triggers, and session progress logs.
+ * Client Detail Page
+ * Backed by GET /patients/{patient_id}, with GET /logs/patient-list
+ * supplying the roster used for the prev/next switcher.
  */
 export default function PatientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // Find active client by ID (case-insensitive) or fallback to first client
-  const activePatient =
-    MOCK_PATIENTS.find((p) => p.id.toLowerCase() === (id || '').toLowerCase()) ||
-    MOCK_PATIENTS[0];
+  const [roster, setRoster] = useState([]);
+  const [patient, setPatient] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const [customLogs, setCustomLogs] = useState({});
-  const [newLogNote, setNewLogNote] = useState('');
-  const [sessionType, setSessionType] = useState('XR Immersion');
-
-  // Combine custom session notes with mock client logs
-  const patientLogs = [
-    ...(customLogs[activePatient.id] || []),
-    ...activePatient.logs,
-  ];
-
-  const currentIndex = MOCK_PATIENTS.findIndex((p) => p.id === activePatient.id);
-  const prevPatient = MOCK_PATIENTS[(currentIndex - 1 + MOCK_PATIENTS.length) % MOCK_PATIENTS.length];
-  const nextPatient = MOCK_PATIENTS[(currentIndex + 1) % MOCK_PATIENTS.length];
-
-  const handleAddLog = (e) => {
-    e.preventDefault();
-    if (!newLogNote.trim()) return;
-
-    const now = new Date();
-    const timestamp = now.toISOString().slice(0, 10) + ' ' + now.toTimeString().slice(0, 5);
-
-    const newEntry = {
-      timestamp,
-      sessionType,
-      note: newLogNote.trim(),
+  useEffect(() => {
+    let active = true;
+    patientService
+      .getPatientLogs()
+      .then((data) => {
+        if (active) setRoster(data || []);
+      })
+      .catch(() => {
+        /* roster is a nice-to-have for the switcher; detail fetch below reports errors */
+      });
+    return () => {
+      active = false;
     };
+  }, []);
 
-    setCustomLogs((prev) => ({
-      ...prev,
-      [activePatient.id]: [newEntry, ...(prev[activePatient.id] || [])],
-    }));
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    setLoading(true);
+    setError('');
+    patientService
+      .getPatientById(id)
+      .then((data) => {
+        if (active) setPatient(data);
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Unable to load this client record.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
-    setNewLogNote('');
+  const getStatusBadgeClass = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'active':
+        return 'badge badge-treatment';
+      case 'chronic':
+        return 'badge badge-observation';
+      case 'resolved':
+        return 'badge badge-discharged';
+      default:
+        return 'badge';
+    }
   };
 
-  const getStatusBadgeClass = (status = '') => {
-    const s = status.toLowerCase();
-    if (s.includes('active') || s.includes('treatment') || s.includes('admitted')) {
-      return 'badge badge-treatment';
-    }
-    if (s.includes('maintenance') || s.includes('observation')) {
-      return 'badge badge-observation';
-    }
-    if (s.includes('completed') || s.includes('discharged')) {
-      return 'badge badge-discharged';
-    }
-    return 'badge';
-  };
+  const currentIndex = roster.findIndex((p) => p.id === id);
+  const prevPatient = roster.length ? roster[(currentIndex - 1 + roster.length) % roster.length] : null;
+  const nextPatient = roster.length ? roster[(currentIndex + 1) % roster.length] : null;
+
+  if (loading) {
+    return (
+      <div className="page-container patient-detail-page">
+        <div className="table-info-banner">Loading client record…</div>
+      </div>
+    );
+  }
+
+  if (error || !patient) {
+    return (
+      <div className="page-container patient-detail-page">
+        <Link to="/logs/patient-list" className="btn-back">
+          <span className="back-arrow">←</span> Back to Client Directory
+        </Link>
+        <div className="auth-error-banner" role="alert" style={{ marginTop: '16px' }}>
+          <span className="error-icon">⚠️</span>
+          <span>{error || 'Client not found.'}</span>
+        </div>
+      </div>
+    );
+  }
+
+  const latestStatus = patient.medical_history?.[0]?.status;
 
   return (
     <div className="page-container patient-detail-page">
@@ -73,46 +101,49 @@ export default function PatientDetail() {
           <span className="back-arrow">←</span> Back to Client Directory
         </Link>
 
-        {/* Quick Prev / Next Jump */}
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ fontSize: '0.8rem', padding: '8px 16px' }}
-            onClick={() => navigate(`/patients/${prevPatient.id}`)}
-            title={`Switch to ${prevPatient.name}`}
-          >
-            ← Prev ({prevPatient.name.split(' ')[0]})
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ fontSize: '0.8rem', padding: '8px 16px' }}
-            onClick={() => navigate(`/patients/${nextPatient.id}`)}
-            title={`Switch to ${nextPatient.name}`}
-          >
-            Next ({nextPatient.name.split(' ')[0]}) →
-          </button>
-        </div>
+        {prevPatient && nextPatient && (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ fontSize: '0.8rem', padding: '8px 16px' }}
+              onClick={() => navigate(`/patients/${prevPatient.id}`)}
+              title={`Switch to ${prevPatient.name}`}
+            >
+              ← Prev ({prevPatient.name.split(' ')[0]})
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ fontSize: '0.8rem', padding: '8px 16px' }}
+              onClick={() => navigate(`/patients/${nextPatient.id}`)}
+              title={`Switch to ${nextPatient.name}`}
+            >
+              Next ({nextPatient.name.split(' ')[0]}) →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Client Switcher Bar */}
-      <div className="provider-switcher-container">
-        <span className="switcher-label">Switch Client Overview:</span>
-        <div className="switcher-pills">
-          {MOCK_PATIENTS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={`switcher-pill ${p.id === activePatient.id ? 'active' : ''}`}
-              onClick={() => navigate(`/patients/${p.id}`)}
-            >
-              <span className="switcher-pill-name">{p.name}</span>
-              <span className="switcher-pill-dept">{p.status}</span>
-            </button>
-          ))}
+      {roster.length > 1 && (
+        <div className="provider-switcher-container">
+          <span className="switcher-label">Switch Client Overview:</span>
+          <div className="switcher-pills">
+            {roster.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`switcher-pill ${p.id === patient.id ? 'active' : ''}`}
+                onClick={() => navigate(`/patients/${p.id}`)}
+              >
+                <span className="switcher-pill-name">{p.name}</span>
+                <span className="switcher-pill-dept">{p.status || 'No record'}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Client Header Banner */}
       <div className="client-hero-card">
@@ -120,278 +151,226 @@ export default function PatientDetail() {
           <div className="client-identity">
             <div className="client-avatar-ring">
               <span className="client-avatar-initials">
-                {activePatient.name.split(' ').map((n) => n[0]).join('')}
+                {patient.name.split(' ').map((n) => n[0]).join('')}
               </span>
             </div>
             <div>
               <div className="client-title-row">
-                <h2>{activePatient.name}</h2>
-                {activePatient.pronouns && (
-                  <span className="client-pronouns-tag">{activePatient.pronouns}</span>
+                <h2>{patient.name}</h2>
+                <span className="patient-id-tag" style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>{patient.id}</span>
+                {latestStatus && (
+                  <span className={getStatusBadgeClass(latestStatus)}>{latestStatus}</span>
                 )}
-                <span className="patient-id-tag">{activePatient.id}</span>
-                <span className={getStatusBadgeClass(activePatient.status)}>
-                  {activePatient.status}
-                </span>
               </div>
               <p className="client-care-track-text">
-                🌿 {activePatient.careTrack || 'Immersive XR Therapy Track'}
+                {patient.providers?.length
+                  ? `Assigned to ${patient.providers.map((p) => p.name).join(', ')}`
+                  : 'No provider currently assigned'}
               </p>
             </div>
           </div>
 
           <div className="client-meta-box">
             <div className="client-meta-item">
-              <span className="meta-label">Lead Clinician</span>
-              <span className="meta-value">{activePatient.attendingPhysician}</span>
+              <span className="meta-label">Phone</span>
+              <span className="meta-value">{patient.phone || 'Not on file'}</span>
             </div>
             <div className="client-meta-item">
-              <span className="meta-label">Intake Date</span>
-              <span className="meta-value">{activePatient.admissionDate}</span>
+              <span className="meta-label">Email</span>
+              <span className="meta-value">{patient.email || 'Not on file'}</span>
             </div>
             <div className="client-meta-item">
-              <span className="meta-label">Location / Suite</span>
-              <span className="meta-value">{activePatient.room}</span>
+              <span className="meta-label">Date of Birth</span>
+              <span className="meta-value">{patient.date_of_birth || 'Not on file'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Biometrics & Affect Indicators Row */}
+      {/* Overview Stats Row */}
       <section className="detail-section" style={{ marginTop: '24px' }}>
         <div className="section-title-row">
-          <h3>Current Affect & Wellness Biometrics</h3>
-          <span className="section-tag-live">● Live Biofeedback Coherence</span>
+          <h3>Client Overview</h3>
         </div>
         <div className="vitals-grid">
-          <div className="vital-card mental-vital-card">
-            <span className="vital-label">Mood / Affect State</span>
-            <span className="vital-value" style={{ fontSize: '1.2rem', color: '#38bdf8' }}>
-              {activePatient.vitals.affect || 'Calm & Grounded'}
-            </span>
-            <span className="vital-sub">Subjective Scale: 8/10</span>
+          <div className="vital-card">
+            <span className="vital-label">Age</span>
+            <span className="vital-value">{patient.age != null ? patient.age : 'N/A'}</span>
           </div>
-
-          <div className="vital-card mental-vital-card">
-            <span className="vital-label">Heart Rate Variability</span>
-            <span className="vital-value">{activePatient.vitals.hrv || '72 ms'}</span>
-            <span className="vital-sub">Parasympathetic Tone</span>
+          <div className="vital-card">
+            <span className="vital-label">Gender</span>
+            <span className="vital-value">{patient.gender || 'Unspecified'}</span>
           </div>
-
-          <div className="vital-card mental-vital-card">
-            <span className="vital-label">Clinical Scale Index</span>
-            <span className="vital-value" style={{ fontSize: '1.15rem' }}>
-              {activePatient.vitals.anxietyScale || '6/21 (Mild)'}
-            </span>
-            <span className="vital-sub">Validated Intake Metric</span>
+          <div className="vital-card">
+            <span className="vital-label">Assigned Providers</span>
+            <span className="vital-value">{patient.providers?.length || 0}</span>
           </div>
-
-          <div className="vital-card mental-vital-card">
-            <span className="vital-label">XR Calm & Coherence</span>
-            <span className="vital-value" style={{ color: '#34d399' }}>
-              {activePatient.vitals.xrCalmIndex || '92%'}
-            </span>
-            <span className="vital-sub">Spatial Biofeedback Score</span>
+          <div className="vital-card">
+            <span className="vital-label">Medical History Entries</span>
+            <span className="vital-value">{patient.medical_history?.length || 0}</span>
           </div>
-
-          <div className="vital-card mental-vital-card">
-            <span className="vital-label">Sleep Architecture</span>
-            <span className="vital-value">{activePatient.vitals.sleepQuality || '7.8 hrs'}</span>
-            <span className="vital-sub">Restorative Sleep Index</span>
+          <div className="vital-card">
+            <span className="vital-label">Clinical Sessions</span>
+            <span className="vital-value">{patient.clinical_sessions?.length || 0}</span>
           </div>
         </div>
       </section>
 
       {/* Main Details Grid */}
       <div className="detail-layout">
-        {/* Left Column: Mental Health Profile & Care Regimen */}
+        {/* Left Column: Medical History & Sessions */}
         <div className="detail-column main-col">
-          {/* Mental Health Profile Card */}
-          <section className="detail-section card mental-profile-card">
-            <div className="profile-card-header">
-              <div>
-                <h3>Mental Health Profile</h3>
-                <p className="profile-subtitle">Clinical Formulation, Modality & Safety Anchors</p>
-              </div>
-              <span className="profile-badge-pill">Clinical Track</span>
-            </div>
-
-            {/* Diagnostic & Modality Highlight Box */}
-            <div className="clinical-highlight-banner">
-              <div className="highlight-item">
-                <span className="highlight-label">Primary Diagnostic Formulation</span>
-                <p className="highlight-title">{activePatient.diagnosis}</p>
-              </div>
-              <div className="highlight-grid">
-                <div>
-                  <span className="highlight-label">Therapeutic Modality</span>
-                  <p className="highlight-value">{activePatient.modality || 'CBT + Somatic XR Immersion'}</p>
-                </div>
-                <div>
-                  <span className="highlight-label">Current Phase</span>
-                  <p className="highlight-value">{activePatient.carePhase || 'Phase 2: Exposure & Restructuring'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Demographics & Contact Mini-Grid */}
-            <div className="demographics-grid">
-              <div className="demo-item">
-                <span className="demo-label">Client Age & Gender</span>
-                <p className="demo-value">{activePatient.age} years • {activePatient.gender}</p>
-              </div>
-              <div className="demo-item">
-                <span className="demo-label">Preferred Session Mode</span>
-                <p className="demo-value">{activePatient.preferredFormat || 'Immersive XR Headset + Telehealth'}</p>
-              </div>
-              <div className="demo-item">
-                <span className="demo-label">Contact Phone</span>
-                <p className="demo-value">{activePatient.phone}</p>
-              </div>
-              <div className="demo-item">
-                <span className="demo-label">Email Address</span>
-                <p className="demo-value">{activePatient.email}</p>
-              </div>
-              <div className="demo-item full-span">
-                <span className="demo-label">Emergency Safety Contact</span>
-                <p className="demo-value">{activePatient.emergencyContact || 'Designated Family Contact'}</p>
-              </div>
-            </div>
-
-            {/* Identified Triggers & Emotional Sensitivities */}
-            <div className="profile-section-group">
-              <div className="group-title-row">
-                <h4>⚡ Identified Emotional Triggers & Sensitivities</h4>
-                <span className="tag-calm">De-escalation Protocols</span>
-              </div>
-              <div className="trigger-tags-wrapper">
-                {(activePatient.triggers || ['Crowded Sensory Spaces', 'Sudden Loud Noises', 'Tight Deadlines']).map((trigger, i) => (
-                  <span key={i} className="trigger-pill">
-                    <span className="trigger-dot"></span>
-                    {trigger}
-                  </span>
-                ))}
-              </div>
-
-              {activePatient.copingAnchor && (
-                <div className="coping-anchor-box">
-                  <strong>⚓ Coping Anchor / Safety Plan:</strong> {activePatient.copingAnchor}
-                </div>
-              )}
-            </div>
-
-            {/* Therapeutic Goals & Progress */}
-            {activePatient.goals && (
-              <div className="profile-section-group">
-                <div className="group-title-row">
-                  <h4>🎯 Active Therapeutic Goals & Milestones</h4>
-                  <span className="tag-calm">Progress Metrics</span>
-                </div>
-                <div className="goals-list">
-                  {activePatient.goals.map((goal, idx) => (
-                    <div key={idx} className="goal-item-card">
-                      <div className="goal-item-header">
-                        <span className="goal-text">{goal.text}</span>
-                        <span className={`goal-status-badge status-${goal.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                          {goal.status} ({goal.progress}%)
-                        </span>
-                      </div>
-                      <div className="goal-progress-bar-bg">
-                        <div
-                          className="goal-progress-fill"
-                          style={{ width: `${goal.progress}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Psychological Background & Clinical Narrative */}
-            <div className="profile-section-group" style={{ marginBottom: 0 }}>
-              <div className="group-title-row">
-                <h4>📜 Psychological Intake Summary & Narrative</h4>
-              </div>
-              <div className="narrative-history-box">
-                <p>{activePatient.history}</p>
-              </div>
-            </div>
-          </section>
-
-          {/* Prescribed Care & Regimen Card */}
           <section className="detail-section card">
             <div className="profile-card-header">
               <div>
-                <h3>Prescribed Care & Therapeutic Regimen</h3>
-                <p className="profile-subtitle">Somatic Interventions, Psychotropics & XR Dosage</p>
+                <h3>Medical History</h3>
+                <p className="profile-subtitle">Conditions on record for this client</p>
               </div>
-              <span className="profile-badge-pill">Active Plan</span>
             </div>
 
-            <div className="regimen-grid">
-              {activePatient.medications.map((med, index) => (
-                <div key={index} className="regimen-card">
-                  <div className="regimen-top">
-                    <strong className="regimen-name">{med.name}</strong>
-                    <span className="regimen-type-pill">{med.type || 'Therapeutic Regimen'}</span>
+            {!patient.medical_history?.length ? (
+              <p style={{ color: 'var(--text-muted)' }}>No medical history recorded.</p>
+            ) : (
+              <div className="profile-section-group" style={{ marginBottom: 0 }}>
+                {patient.medical_history.map((entry, idx) => (
+                  <div key={idx} className="narrative-history-box" style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <strong>{entry.condition}</strong>
+                      <span className={getStatusBadgeClass(entry.status)}>{entry.status}</span>
+                    </div>
+                    <div className="sub-text" style={{ marginBottom: '4px' }}>
+                      Onset: {entry.onset_date || 'Unknown'} • Recorded: {entry.date_created}
+                    </div>
+                    {entry.notes && <p style={{ margin: 0 }}>{entry.notes}</p>}
                   </div>
-                  <div className="regimen-dosage">{med.dosage}</div>
-                  <div className="regimen-timing">⏰ {med.timing}</div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="detail-section card">
+            <div className="profile-card-header">
+              <div>
+                <h3>App Sessions</h3>
+                <p className="profile-subtitle">Reflect XR / Reflect Mobile module usage</p>
+              </div>
             </div>
+            {!patient.sessions?.length ? (
+              <p style={{ color: 'var(--text-muted)' }}>No app sessions recorded.</p>
+            ) : (
+              <div className="patient-table-container">
+                <table className="patient-table" style={{ fontSize: '0.9rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Module</th>
+                      <th>Platform</th>
+                      <th>Date</th>
+                      <th>Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {patient.sessions.map((session) => (
+                      <tr key={session.id}>
+                        <td>{session.application_name}</td>
+                        <td>{session.platform}</td>
+                        <td>{session.session_date}</td>
+                        <td>
+                          {session.duration_seconds != null
+                            ? `${Math.round(session.duration_seconds / 60)} min`
+                            : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="detail-section card">
+            <div className="profile-card-header">
+              <div>
+                <h3>Clinical Sessions</h3>
+                <p className="profile-subtitle">Provider therapy sessions, remote or in person</p>
+              </div>
+            </div>
+            {!patient.clinical_sessions?.length ? (
+              <p style={{ color: 'var(--text-muted)' }}>No clinical sessions recorded.</p>
+            ) : (
+              <div className="patient-table-container">
+                <table className="patient-table" style={{ fontSize: '0.9rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Provider</th>
+                      <th>Mode</th>
+                      <th>Date</th>
+                      <th>Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {patient.clinical_sessions.map((session) => (
+                      <tr key={session.id}>
+                        <td>{session.provider_name}</td>
+                        <td>{session.mode}</td>
+                        <td>{session.session_date}</td>
+                        <td>
+                          {session.duration_seconds != null
+                            ? `${Math.round(session.duration_seconds / 60)} min`
+                            : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </div>
 
-        {/* Right Column: Therapeutic Progress Notes Timeline & Add Note */}
+        {/* Right Column: Providers & Clinical Notes */}
         <div className="detail-column side-col">
           <section className="detail-section card">
             <div className="profile-card-header">
               <div>
-                <h3>Session Notes & XR Logs</h3>
-                <p className="profile-subtitle">Real-time clinical timeline</p>
+                <h3>Assigned Providers</h3>
+              </div>
+            </div>
+            {!patient.providers?.length ? (
+              <p style={{ color: 'var(--text-muted)' }}>No providers currently assigned.</p>
+            ) : (
+              patient.providers.map((provider) => (
+                <div key={provider.id} className="demo-item" style={{ marginBottom: '10px' }}>
+                  <span className="demo-label">{provider.specialty || 'Provider'}</span>
+                  <p className="demo-value">{provider.name}</p>
+                  <p className="sub-text">{provider.email}</p>
+                </div>
+              ))
+            )}
+          </section>
+
+          <section className="detail-section card">
+            <div className="profile-card-header">
+              <div>
+                <h3>Clinical Notes & Logs</h3>
+                <p className="profile-subtitle">Provider-entered record</p>
               </div>
             </div>
 
-            <form onSubmit={handleAddLog} className="add-log-form">
-              <div className="session-type-selector">
-                <label>Session Modality:</label>
-                <select
-                  value={sessionType}
-                  onChange={(e) => setSessionType(e.target.value)}
-                  className="session-select-input"
-                >
-                  <option value="XR Immersion">Reflect XR Immersion</option>
-                  <option value="Psychotherapy">1-on-1 Psychotherapy</option>
-                  <option value="Biofeedback Check-in">Biofeedback Check-in</option>
-                  <option value="Self-Care Log">Self-Guided Practice</option>
-                </select>
-              </div>
-
-              <textarea
-                rows="4"
-                placeholder="Enter session observation, client affect, biofeedback insights, or XR breakthroughs..."
-                value={newLogNote}
-                onChange={(e) => setNewLogNote(e.target.value)}
-              />
-              <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-                + Add Therapeutic Note
-              </button>
-            </form>
-
-            <div className="logs-timeline" style={{ marginTop: '24px' }}>
-              {patientLogs.map((log, index) => (
-                <div key={index} className="log-entry mental-log-entry">
-                  <div className="log-header-row">
-                    <span className="log-timestamp">{log.timestamp}</span>
-                    <span className="log-session-badge">
-                      {log.sessionType || 'Clinical Session'}
-                    </span>
+            <div className="logs-timeline">
+              {!patient.logs?.length ? (
+                <p style={{ color: 'var(--text-muted)' }}>No clinical notes recorded yet.</p>
+              ) : (
+                patient.logs.map((log) => (
+                  <div key={log.id} className="log-entry mental-log-entry">
+                    <div className="log-header-row">
+                      <span className="log-timestamp">{log.timestamp}</span>
+                      <span className="log-session-badge">{log.type || 'Note'}</span>
+                    </div>
+                    <p className="log-text">{log.note}</p>
+                    <div className="sub-text">— {log.provider_name}</div>
                   </div>
-                  <p className="log-text">{log.note}</p>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
         </div>
