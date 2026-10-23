@@ -8,14 +8,7 @@ export const authService = {
     });
   },
 
-  signup: async (userData) => {
-    return apiRequest('/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-  },
-
-  logout: async () => {
-    return apiRequest('/auth/logout', { method: 'POST' });
+  getCurrentUser: async () => {
+    return apiRequest('/auth/me', { method: 'GET' });
   },
 };

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authService } from '../services/authService';
 
 const AuthContext = createContext(null);
@@ -30,6 +30,26 @@ export function AuthProvider({ children }) {
   });
 
   const [authError, setAuthError] = useState('');
+
+  // Validate the stored token against the backend; clear a stale/expired session.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    authService.getCurrentUser().catch(() => {
+      if (!active) return;
+      setUser(null);
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    });
+    return () => {
+      active = false;
+    };
+    // Only re-validate when the session actually changes, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const login = async (email, password) => {
     setAuthError('');

@@ -6,6 +6,7 @@ import Login from '../pages/auth/Login';
 import Signup from '../pages/auth/Signup';
 import PatientList from '../pages/logs/PatientList';
 import PatientDetail from '../pages/patients/PatientDetail';
+import MyProfile from '../pages/providers/MyProfile';
 import AdminProviderList from '../pages/admin/AdminProviderList';
 import AdminProviderDetail from '../pages/admin/AdminProviderDetail';
 import ProtectedRoute from './ProtectedRoute';
@@ -40,7 +41,8 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute allowedRoles={['provider']} />}>
           <Route path="logs/patient-list" element={<PatientList />} />
           <Route path="patients/:id" element={<PatientDetail />} />
-          <Route path="patient-detail" element={<Navigate to="/patients/PT-1001" replace />} />
+          <Route path="patient-detail" element={<Navigate to="/logs/patient-list" replace />} />
+          <Route path="providers/me" element={<MyProfile />} />
         </Route>
 
         {/* Admin Chain: Exclusively accessible to Admin credentials */}

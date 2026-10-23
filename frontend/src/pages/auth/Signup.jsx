@@ -1,76 +1,40 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Link } from 'react-router-dom';
 
 /**
- * Signup Page Component
+ * Account Provisioning Notice
+ * ReflectX accounts are provisioned by a practice administrator from seeded
+ * clinician/admin records (database/seed.sql) — there is no self-service
+ * signup endpoint on the backend.
  */
 export default function Signup() {
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // TODO: Implement signup logic
-  };
-
   return (
-    <div className="page-container auth-page">
-      <h2>Sign Up</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="fullName">Full Name</label>
-          <input
-            type="text"
-            id="fullName"
-            name="fullName"
-            value={formData.fullName}
-            onChange={handleChange}
-            placeholder="Enter your full name"
-          />
+    <div className="auth-card-wrapper">
+      <div className="auth-page">
+        <div className="auth-header">
+          <h2>Account Access</h2>
+          <p className="subtitle" style={{ textAlign: 'center', marginBottom: '20px' }}>
+            ReflectX accounts are provisioned by your practice administrator, not created
+            through self-service signup.
+          </p>
         </div>
-        <div className="form-group">
-          <label htmlFor="email">Email</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Enter your email"
-          />
+
+        <div className="credentials-helper-card">
+          <div className="helper-header">
+            <span>Need access?</span>
+          </div>
+          <div className="helper-body">
+            <p style={{ margin: 0 }}>
+              Ask a practice administrator to add your clinician or admin account to the
+              database. Once provisioned, sign in with your username or email and password.
+            </p>
+          </div>
         </div>
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="Create password"
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="confirmPassword">Confirm Password</label>
-          <input
-            type="password"
-            id="confirmPassword"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            placeholder="Confirm password"
-          />
-        </div>
-        <button type="submit">Sign Up</button>
-      </form>
+
+        <Link to="/login" className="btn-primary" style={{ width: '100%', textAlign: 'center', display: 'block', marginTop: '16px' }}>
+          Back to Sign In
+        </Link>
+      </div>
     </div>
   );
 }

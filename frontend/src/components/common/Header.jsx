@@ -78,6 +78,12 @@ export default function Header({ hideFloatingNav = false }) {
                   >
                     CLIENT DIRECTORY & THERAPY LOGS
                   </NavLink>
+                  <NavLink
+                    to="/providers/me"
+                    className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                  >
+                    MY PROFILE
+                  </NavLink>
                 </>
               ) : null}
             </div>
