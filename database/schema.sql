@@ -214,3 +214,24 @@ CREATE INDEX IF NOT EXISTS idx_clinical_sessions_patient ON clinical_sessions (p
 CREATE INDEX IF NOT EXISTS idx_notes_patient ON provider_notes (patient_id, date_created);
 CREATE INDEX IF NOT EXISTS idx_response_entries_patient ON response_entries (patient_id, recorded_at);
 CREATE INDEX IF NOT EXISTS idx_audit_log_time ON audit_log (occurred_at);
+-- ===== Mental-health additions (safe to rerun) =====
+ALTER TABLE patient_medical_history
+    ADD COLUMN IF NOT EXISTS severity text NOT NULL DEFAULT ''
+        CHECK (severity IN ('', 'Mild', 'Moderate', 'Severe')),
+    ADD COLUMN IF NOT EXISTS treatment_start_date date;
+
+CREATE TABLE IF NOT EXISTS patient_medications (
+    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id    uuid NOT NULL REFERENCES patients(id),
+    name          text NOT NULL,
+    dosage        text NOT NULL DEFAULT '',
+    frequency     text NOT NULL DEFAULT '',
+    started_on    date,
+    status        text NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Stopped')),
+    notes         text NOT NULL DEFAULT '',
+    date_created  timestamptz NOT NULL DEFAULT now(),
+    is_deleted    boolean NOT NULL DEFAULT false,
+    date_deleted  timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_medications_patient ON patient_medications (patient_id);
