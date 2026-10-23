@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { MOCK_PROVIDERS } from '../../data/mockProviders';
 
 /**
- * Admin: Provider List & Directory Component
- * Allows administrators to see all healthcare providers in a table,
- * search/filter them, and view their individual details.
+ * Admin: Therapists & Clinicians Directory Component
+ * Practice management view of licensed psychologists, therapists, and psychiatrists.
  */
 export default function AdminProviderList() {
   const [providers] = useState(MOCK_PROVIDERS);
@@ -63,19 +62,19 @@ export default function AdminProviderList() {
     <div className="page-container provider-list-page">
       <header className="page-header">
         <div>
-          <h2>Healthcare Providers Directory</h2>
+          <h2>Therapists & Clinicians Directory</h2>
           <p className="subtitle">
-            Administrative registry of clinical staff, active shifts, medical licensing, and patient coverage
+            Practice management registry of licensed psychologists, psychiatrists, therapists, active schedules, and caseload coverage
           </p>
         </div>
         <div className="stats-pills">
-          <span className="pill">Total Providers: {providers.length}</span>
-          <span className="pill pill-active">Active / On-Duty: {activeStaffCount}</span>
-          <span className="pill">Inpatients Covered: {totalPatientsAssigned}</span>
+          <span className="pill">Total Clinicians: {providers.length}</span>
+          <span className="pill pill-active">Active in Practice: {activeStaffCount}</span>
+          <span className="pill">Caseloads Covered: {totalPatientsAssigned}</span>
         </div>
       </header>
 
-      {/* Quick Provider Cards Grid for Instant Navigation */}
+      {/* Quick Clinician Cards Grid */}
       <div className="quick-provider-grid">
         {providers.map((p) => (
           <div
@@ -90,8 +89,8 @@ export default function AdminProviderList() {
             <div className="quick-card-name">{p.name}</div>
             <div className="quick-card-dept">{p.department}</div>
             <div className="quick-card-meta">
-              <span>{p.assignedPatients.length} Patients</span>
-              <span className="quick-card-link">View Details →</span>
+              <span>{p.assignedPatients.length} Active Clients</span>
+              <span className="quick-card-link">View Profile →</span>
             </div>
           </div>
         ))}
@@ -101,7 +100,7 @@ export default function AdminProviderList() {
         <div className="search-box">
           <input
             type="text"
-            placeholder="Search by ID, doctor name, specialty, or license #..."
+            placeholder="Search by ID, therapist name, specialty, or license #..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -111,7 +110,7 @@ export default function AdminProviderList() {
           <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}>
             {departments.map((dept) => (
               <option key={dept} value={dept}>
-                {dept === 'All' ? 'All Departments' : dept}
+                {dept === 'All' ? 'All Clinical Departments' : dept}
               </option>
             ))}
           </select>
@@ -119,7 +118,7 @@ export default function AdminProviderList() {
 
         <div className="filter-box">
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="All">All Statuses</option>
+            <option value="All">All Practice Statuses</option>
             <option value="Active">Active</option>
             <option value="On-Duty">On-Duty</option>
             <option value="In Consultation">In Consultation</option>
@@ -129,18 +128,18 @@ export default function AdminProviderList() {
       </div>
 
       <div className="table-info-banner">
-        <span>📋 Showing <strong>{filteredProviders.length}</strong> of <strong>{providers.length}</strong> clinical providers. Click any row or the <strong>View Details</strong> button to open their individual page.</span>
+        <span>👥 Showing <strong>{filteredProviders.length}</strong> of <strong>{providers.length}</strong> licensed mental health clinicians. Click any row or the <strong>View Profile</strong> button to open their credentials.</span>
       </div>
 
       <div className="patient-table-container">
         <table className="patient-table provider-table">
           <thead>
             <tr>
-              <th style={{ width: '10%' }}>Provider ID</th>
-              <th style={{ width: '22%' }}>Provider & Title</th>
-              <th style={{ width: '25%' }}>Department & Office</th>
-              <th style={{ width: '16%' }}>License & NPI</th>
-              <th style={{ width: '10%' }}>Inpatients</th>
+              <th style={{ width: '10%' }}>Clinician ID</th>
+              <th style={{ width: '22%' }}>Clinician & Title</th>
+              <th style={{ width: '25%' }}>Department & Suite</th>
+              <th style={{ width: '16%' }}>Clinical License & NPI</th>
+              <th style={{ width: '10%' }}>Caseload</th>
               <th style={{ width: '12%' }}>Status</th>
               <th style={{ width: '15%', textAlign: 'center' }}>Actions</th>
             </tr>
@@ -150,7 +149,7 @@ export default function AdminProviderList() {
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '2.5rem' }}>
                   <div style={{ color: 'var(--text-muted)', marginBottom: '12px' }}>
-                    No healthcare providers found matching your criteria.
+                    No clinicians found matching your criteria.
                   </div>
                   <button
                     className="btn-secondary"
@@ -195,7 +194,7 @@ export default function AdminProviderList() {
                   </td>
                   <td>
                     <span className="pill" style={{ fontSize: '0.78rem', padding: '3px 8px', whiteSpace: 'nowrap' }}>
-                      {provider.assignedPatients.length} Patients
+                      {provider.assignedPatients.length} Clients
                     </span>
                   </td>
                   <td>
@@ -213,7 +212,7 @@ export default function AdminProviderList() {
                       }}
                       title={`View full clinical profile for ${provider.name}`}
                     >
-                      View Details →
+                      View Profile →
                     </button>
                   </td>
                 </tr>

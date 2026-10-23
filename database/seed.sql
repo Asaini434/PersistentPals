@@ -1,13 +1,13 @@
--- Providers: the four attending physicians from the mock data, plus one admin
+-- Providers: the four mental health clinicians from the mock data, plus one practice admin
 INSERT INTO users (email, display_name, title, specialty, role) VALUES
-  ('sarah.jenkins@example.com', 'Dr. Sarah Jenkins', 'Attending Physician', 'Cardiology',  'Provider'),
-  ('robert.miller@example.com', 'Dr. Robert Miller', 'Attending Physician', 'Orthopedics', 'Provider'),
-  ('amanda.chen@example.com',   'Dr. Amanda Chen',   'Attending Physician', 'Neurology',   'Provider'),
-  ('david.ross@example.com',    'Dr. David Ross',    'Attending Physician', 'Pulmonology', 'Provider'),
-  ('admin@example.com',         'Admin User',        'Administrator',       '',            'Admin')
+  ('sarah.jenkins@example.com', 'Dr. Sarah Jenkins, PsyD', 'Lead Clinical Psychologist', 'Clinical Psychology',  'Provider'),
+  ('robert.miller@example.com', 'Dr. Robert Miller, MD',    'Senior Neuropsychiatrist',  'Neuropsychiatry',    'Provider'),
+  ('amanda.chen@example.com',   'Dr. Amanda Chen, PhD',     'Director of Trauma Therapy', 'Trauma Psychology', 'Provider'),
+  ('david.ross@example.com',    'Dr. David Ross, LCSW',     'Director of Mindfulness',    'Behavioral Health',  'Provider'),
+  ('admin@example.com',         'Admin User',               'Practice Administrator',     '',                   'Admin')
 ON CONFLICT (email) DO NOTHING;
 
--- Patients: the four from the mock data (all synthetic)
+-- Patients: the four mental health clients from the mock data
 INSERT INTO patients (email, first_name, last_name, phone, gender, date_of_birth) VALUES
   ('eleanor.vance@example.com', 'Eleanor', 'Vance',     '+1 (555) 234-5678', 'Female', '1984-03-14'),
   ('marcus.brody@example.com',  'Marcus',  'Brody',     '+1 (555) 876-5432', 'Male',   '1958-07-22'),
@@ -15,7 +15,7 @@ INSERT INTO patients (email, first_name, last_name, phone, gender, date_of_birth
   ('arthur.p@example.com',      'Arthur',  'Pendelton', '+1 (555) 654-9870', 'Male',   '1971-05-30')
 ON CONFLICT (email) DO NOTHING;
 
--- Assignments: each patient goes to their attending physician
+-- Assignments: each client goes to their attending clinician
 INSERT INTO provider_patients (provider_id, patient_id)
 SELECT u.id, p.id
 FROM (VALUES
@@ -29,43 +29,38 @@ JOIN patients p ON p.email = a.patient_email
 ON CONFLICT (provider_id, patient_id) DO NOTHING;
 
 
--- ============ MEDICAL HISTORY (from mock "history", "diagnosis", "allergies") ============
+-- ============ PSYCHOLOGICAL HISTORY & DIAGNOSES ============
 INSERT INTO patient_medical_history (patient_id, condition, status, onset_date, notes)
 SELECT p.id, v.condition, v.status, v.onset_date::date, v.notes
 FROM (VALUES
-  ('eleanor.vance@example.com', 'Acute coronary syndrome',        'Active',   '2026-10-02', 'Admitted via ER with mild chest tightness.'),
-  ('eleanor.vance@example.com', 'Hypertension (stage 1)',         'Chronic',  NULL,         ''),
-  ('eleanor.vance@example.com', 'Asthma (mild)',                  'Chronic',  NULL,         'No previous surgical complications.'),
-  ('eleanor.vance@example.com', 'Penicillin allergy',             'Chronic',  NULL,         ''),
-  ('eleanor.vance@example.com', 'Sulfa drug allergy',             'Chronic',  NULL,         ''),
-  ('marcus.brody@example.com',  'Total knee arthroplasty, right', 'Active',   '2026-09-28', 'Post-op.'),
-  ('marcus.brody@example.com',  'Osteoarthritis of both knees',   'Chronic',  NULL,         ''),
-  ('marcus.brody@example.com',  'Type 2 diabetes',                'Chronic',  NULL,         'Controlled with Metformin.'),
-  ('marcus.brody@example.com',  'Latex allergy',                  'Chronic',  NULL,         ''),
-  ('sophia.patel@example.com',  'Migraine with aura / dehydration','Active',  '2026-10-05', ''),
-  ('sophia.patel@example.com',  'Recurrent episodic migraines',   'Chronic',  NULL,         'Triggered by stress and sleep deprivation.'),
-  ('arthur.p@example.com',      'Community-acquired pneumonia',   'Resolved', '2026-09-15', ''),
-  ('arthur.p@example.com',      'COPD (mild)',                    'Chronic',  NULL,         'Former smoker, quit 2020.'),
-  ('arthur.p@example.com',      'Ciprofloxacin allergy',          'Chronic',  NULL,         '')
+  ('eleanor.vance@example.com', 'Generalized anxiety disorder (GAD)', 'Active',   '2026-10-02', 'High readiness for immersive spatial mindfulness in Reflect XR.'),
+  ('eleanor.vance@example.com', 'Panic agoraphobia',                  'Active',   NULL,         'Triggered by crowded sensory environments.'),
+  ('eleanor.vance@example.com', 'Auditory sensory sensitivity',       'Chronic',  NULL,         'Managed with noise-canceling XR soundscapes.'),
+  ('marcus.brody@example.com',  'Major depressive disorder (MDD)',    'Active',   '2026-09-28', 'Responding to morning behavioral activation nature trails.'),
+  ('marcus.brody@example.com',  'Chronic bereavement response',       'Active',   NULL,         'Processing loss milestones with virtual sunset reflections.'),
+  ('sophia.patel@example.com',  'Social anxiety disorder',            'Active',   '2026-10-05', 'Mastered virtual auditorium public speaking simulation in XR.'),
+  ('sophia.patel@example.com',  'Executive sensory burnout (ADHD)',   'Chronic',  NULL,         'Requires structured post-work digital curfews and somatic rest.'),
+  ('arthur.p@example.com',      'Occupational burnout syndrome',      'Resolved', '2026-09-15', 'Full remission following 8-week structured MBSR program.'),
+  ('arthur.p@example.com',      'Circadian sleep dysregulation',      'Resolved', NULL,         'Sleep architecture restored to 7.6 hrs/night.')
 ) AS v(patient_email, condition, status, onset_date, notes)
 JOIN patients p ON p.email = v.patient_email
 WHERE NOT EXISTS (SELECT 1 FROM patient_medical_history);
 
--- ============ CLINICAL SESSIONS + SESSION NOTES (from mock "logs") ============
+-- ============ THERAPEUTIC SESSIONS & CLINICAL NOTES ============
 -- Temp table holds the eight log entries so two inserts can share them.
 -- It disappears when psql exits.
 CREATE TEMP TABLE seed_logs (
   provider_email text, patient_email text, mode text, local_ts text, note text
 );
 INSERT INTO seed_logs VALUES
-  ('sarah.jenkins@example.com', 'eleanor.vance@example.com', 'InPerson', '2026-10-06 14:30', 'Vitals stable. Patient reports zero chest pain after morning medication.'),
-  ('sarah.jenkins@example.com', 'eleanor.vance@example.com', 'InPerson', '2026-10-05 09:15', 'ECG performed - normal sinus rhythm observed.'),
-  ('sarah.jenkins@example.com', 'eleanor.vance@example.com', 'InPerson', '2026-10-02 11:00', 'Admitted via ER presenting with mild chest tightness.'),
-  ('robert.miller@example.com', 'marcus.brody@example.com',  'InPerson', '2026-10-06 11:00', 'Physical therapy session completed: 45° flexion achieved.'),
-  ('robert.miller@example.com', 'marcus.brody@example.com',  'InPerson', '2026-10-04 16:20', 'Surgical site clean, dry, and intact with minimal edema.'),
-  ('amanda.chen@example.com',   'sophia.patel@example.com',  'Remote',   '2026-10-06 08:00', 'Patient reports headache intensity reduced from 8/10 to 1/10.'),
-  ('amanda.chen@example.com',   'sophia.patel@example.com',  'InPerson', '2026-10-05 22:45', 'IV hydration started, darkness protocol implemented in room.'),
-  ('david.ross@example.com',    'arthur.p@example.com',      'InPerson', '2026-09-25 10:00', 'Discharge criteria met. Follow-up scheduled in 2 weeks.');
+  ('sarah.jenkins@example.com', 'eleanor.vance@example.com', 'InPerson', '2026-10-06 14:30', 'Completed 25-minute Creative Calm XR session with marked parasympathetic coherence.'),
+  ('sarah.jenkins@example.com', 'eleanor.vance@example.com', 'InPerson', '2026-10-05 09:15', 'Bi-weekly cognitive check-in. Evaluated automatic panic triggers. GAD-7 decreased to 6.'),
+  ('sarah.jenkins@example.com', 'eleanor.vance@example.com', 'InPerson', '2026-10-02 11:00', 'Intake assessment and baseline XR immersion setup completed. High client motivation.'),
+  ('robert.miller@example.com', 'marcus.brody@example.com',  'InPerson', '2026-10-06 11:00', 'Behavioral activation review: Marcus completed 5 consecutive morning XR nature walks.'),
+  ('robert.miller@example.com', 'marcus.brody@example.com',  'InPerson', '2026-10-04 16:20', 'Explored grief milestones. Marcus noted reduced feelings of isolation during sunset reflections.'),
+  ('amanda.chen@example.com',   'sophia.patel@example.com',  'Remote',   '2026-10-06 08:00', 'Completed simulated 50-person audience presentation in Reflect XR with minimal anxiety (2/10).'),
+  ('amanda.chen@example.com',   'sophia.patel@example.com',  'InPerson', '2026-10-05 22:45', 'Evening wind-down routine logged: Sophia utilized Explore Self sanctuary with rapid sleep onset.'),
+  ('david.ross@example.com',    'arthur.p@example.com',      'InPerson', '2026-09-25 10:00', 'Discharge criteria met following 8-week MBSR program. Arthur transitioned to alumni track.');
 
 INSERT INTO clinical_sessions (provider_id, patient_id, mode, started_at, ended_at)
 SELECT u.id, p.id, l.mode, t.ts, t.ts + make_interval(mins => 30)
@@ -100,9 +95,9 @@ WHERE NOT EXISTS (SELECT 1 FROM provider_notes n WHERE n.patient_id = p.id AND n
 INSERT INTO patient_communications (provider_id, patient_id, direction, channel, occurred_at, duration_minutes, summary)
 SELECT u.id, p.id, v.direction, v.channel, now() - make_interval(days => v.days_ago), v.mins, v.summary
 FROM (VALUES
-  ('sarah.jenkins@example.com', 'eleanor.vance@example.com', 'Outbound', 'Email', 3, 0,  'Sent a reminder about evening sessions in the app.'),
-  ('robert.miller@example.com', 'marcus.brody@example.com',  'Inbound',  'Phone', 5, 12, 'Patient called with questions about at-home exercises.'),
-  ('amanda.chen@example.com',   'sophia.patel@example.com',  'Outbound', 'Text',  2, 0,  'Checked in after the drop in app use; no reply yet.')
+  ('sarah.jenkins@example.com', 'eleanor.vance@example.com', 'Outbound', 'Email', 3, 0,  'Sent a reminder about evening relaxation sessions in Reflect XR.'),
+  ('robert.miller@example.com', 'marcus.brody@example.com',  'Inbound',  'Phone', 5, 12, 'Client called with questions about at-home XR nature trail exercises.'),
+  ('amanda.chen@example.com',   'sophia.patel@example.com',  'Outbound', 'Text',  2, 0,  'Checked in after the drop in XR app use; follow-up scheduled.')
 ) AS v(provider_email, patient_email, direction, channel, days_ago, mins, summary)
 JOIN users u ON u.email = v.provider_email
 JOIN patients p ON p.email = v.patient_email
