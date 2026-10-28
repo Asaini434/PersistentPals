@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Connection
 from pydantic import BaseModel, Field, field_validator
 
+from .activity import DEFAULT_TZ, client_app_activity, validate_tz
 from .auth import get_current_user, require_role
 from .database import get_connection
 from .providers import _provider_patients
@@ -77,10 +78,13 @@ def patient_details(
     ).fetchall()
     app_sessions = connection.execute(
         """
-        SELECT s.id, s.module_id, m.name AS application_name, m.platform,
+        SELECT s.id, s.module_id, m.name AS application_name, m.platform, m.program, m.uses_ai,
                s.started_at AS in_time, s.ended_at AS out_time,
                EXTRACT(EPOCH FROM (s.ended_at - s.started_at))::int AS duration_seconds,
-               s.started_at::date AS session_date
+               s.started_at::date AS session_date,
+               (SELECT r.mood_score FROM response_entries AS r
+                 WHERE r.session_id = s.id AND r.is_deleted = false
+                 ORDER BY r.recorded_at DESC LIMIT 1) AS mood_after
         FROM sessions AS s
         JOIN modules AS m ON m.id = s.module_id
         WHERE s.patient_id = %s AND s.is_deleted = false
@@ -197,6 +201,20 @@ def _require_assigned_provider(connection: Connection, user: dict[str, str], pat
     ).fetchone()
     if not assigned:
         raise HTTPException(status_code=403, detail="Patient is not assigned to this provider.")
+
+
+@router.get("/patients/{patient_id}/activity")
+def patient_app_activity(
+    patient_id: str,
+    days: int = Query(default=30, ge=7, le=90),
+    tz: str = Query(default=DEFAULT_TZ, description="IANA time zone, e.g. America/New_York"),
+    user: dict[str, str] = Depends(get_current_user),
+    connection: Connection = Depends(get_connection),
+) -> dict:
+    """How this client uses the Reflect apps: per-day trend, modules, time of day, mood after sessions."""
+    _require_assigned_provider(connection, user, patient_id)
+    validate_tz(tz)
+    return client_app_activity(connection, patient_id, days, tz)
 
 
 class NoteRequest(BaseModel):

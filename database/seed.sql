@@ -12,17 +12,47 @@ INSERT INTO users (email, display_name, title, specialty, role) VALUES
   ('admin@example.com',         'Admin User',        'Administrator',         '',                                   'Admin')
 ON CONFLICT (email) DO NOTHING;
 
--- ============ MODULES (placeholders until PTI sends the real list) ============
-INSERT INTO modules (name, platform, description) VALUES
-  ('Creative Calm',    'XR',     'Mandala coloring with instrumental music'),
-  ('Explore Emotions', 'XR',     'Mixed-media virtual canvas for emotional expression'),
-  ('Explore Self',     'XR',     'Guided mask-making to reflect on identity'),
-  ('Explore Journey',  'XR',     'Guided visual timeline of experiences and growth'),
-  ('Create',           'Mobile', ''),
-  ('Learn',            'Mobile', ''),
-  ('Reflect',          'Mobile', ''),
-  ('Creative Calm',    'Mobile', '')
-ON CONFLICT (name, platform) DO NOTHING;
+-- ============ MODULES (official PTI catalog, effective 2026-09-09) ============
+-- Reflect Mobile: 14 modules. Reflect XR Home: 17 modules. program = catalog group; uses_ai = marked (AI).
+INSERT INTO modules (name, platform, program, uses_ai) VALUES
+  ('Floating Bubbles',           'Mobile', 'Creative Calm', false),
+  ('Finger Painting',            'Mobile', 'Creative Calm', false),
+  ('Pour Paint',                 'Mobile', 'Creative Calm', false),
+  ('Breathing Mandala',          'Mobile', 'Creative Calm', false),
+  ('Photo Coloring',             'Mobile', 'Creative Calm', true),
+  ('AI Created Mandala',         'Mobile', 'Creative Calm', true),
+  ('Create Your Own Prompt',     'Mobile', 'Create',        true),
+  ('Options Prompt Pathway',     'Mobile', 'Create',        true),
+  ('Select from Images Pathway', 'Mobile', 'Create',        true),
+  ('Creativity',                 'Mobile', 'Learn',         true),
+  ('Emotions',                   'Mobile', 'Learn',         true),
+  ('Self',                       'Mobile', 'Learn',         true),
+  ('Journey',                    'Mobile', 'Learn',         true),
+  ('Reflection Journals',        'Mobile', 'Reflect',       true),
+
+  ('Containment',                'XR', 'Creative Calm',    false),
+  ('Rhythmic Relaxation',        'XR', 'Creative Calm',    false),
+  ('Color Psychology',           'XR', 'Creative Calm',    false),
+  ('Flow',                       'XR', 'Creative Calm',    false),
+  ('Emotional Expression',       'XR', 'Explore Emotions', false),
+  ('Self Compassion',            'XR', 'Explore Emotions', false),
+  ('Catharsis',                  'XR', 'Explore Emotions', false),
+  ('Portal to the Subconscious', 'XR', 'Explore Emotions', false),
+  ('Present Self Outside',       'XR', 'Explore Self',     false),
+  ('Present Self Inside',        'XR', 'Explore Self',     false),
+  ('Personal Strengths',         'XR', 'Explore Self',     false),
+  ('Future Self',                'XR', 'Explore Self',     false),
+  ('Appreciation of Life',       'XR', 'Explore Journey',  false),
+  ('Hope Tree',                  'XR', 'Explore Journey',  false),
+  ('New Pathways',               'XR', 'Explore Journey',  false),
+  ('Finding Balance',            'XR', 'Explore Journey',  false),
+  ('Training Tutorial',          'XR', 'Getting Started',  false)
+ON CONFLICT (name, platform) DO UPDATE
+  SET program = EXCLUDED.program, uses_ai = EXCLUDED.uses_ai, is_deleted = false, date_deleted = NULL;
+
+-- The earlier placeholder modules (no program) are retired. Rows stay for history; sessions are re-seeded.
+UPDATE modules SET is_deleted = true, date_deleted = now()
+WHERE program = '' AND is_deleted = false;
 
 -- ============ LOGINS (demo password for everyone: demo-password) ============
 INSERT INTO user_credentials (user_id, username, password_hash)

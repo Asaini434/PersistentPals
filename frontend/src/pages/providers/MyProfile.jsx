@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { providerService } from '../../services/providerService';
+import ProviderTimeLog from '../../components/activity/ProviderTimeLog';
 
 /**
  * Provider: My Profile
@@ -60,7 +61,7 @@ export default function MyProfile() {
       <header className="page-header">
         <div>
           <h2>My Profile</h2>
-          <p className="subtitle">Your clinician account and current caseload</p>
+          <p className="subtitle">Your clinician account, time log and current caseload</p>
         </div>
       </header>
 
@@ -110,6 +111,9 @@ export default function MyProfile() {
               </div>
             </div>
           </section>
+
+          {/* Same time log the admin sees for this provider */}
+          <ProviderTimeLog loadActivity={(date, tz) => providerService.getActivity(user.id, { date, tz })} />
 
           <section className="detail-section card">
             <h3>My Assigned Clients</h3>

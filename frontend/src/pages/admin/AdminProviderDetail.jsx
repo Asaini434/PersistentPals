@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { adminService } from '../../services/adminService';
+import ProviderTimeLog from '../../components/activity/ProviderTimeLog';
+import { CaseloadEngagement } from '../../components/activity/AppActivityPanels';
 
 /**
  * Admin: Clinician Detail Page
@@ -52,41 +54,10 @@ export default function AdminProviderDetail() {
     };
   }, [id]);
 
-  // One day of activity (defaults to today in the viewer's time zone)
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
-  const [day, setDay] = useState(() => new Date().toLocaleDateString('en-CA'));
-  const [dayData, setDayData] = useState(null);
-  const [dayLoading, setDayLoading] = useState(false);
-  const [dayError, setDayError] = useState('');
-
-  useEffect(() => {
-    if (!id || !day) return;
-    let active = true;
-    setDayLoading(true);
-    setDayError('');
-    adminService
-      .getProviderActivity(id, { date: day, tz: timeZone })
-      .then((data) => {
-        if (active) setDayData(data);
-      })
-      .catch((err) => {
-        if (active) setDayError(err.message || 'Unable to load activity for this day.');
-      })
-      .finally(() => {
-        if (active) setDayLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [id, day, timeZone]);
-
-  const fmtTime = (value) =>
-    value ? new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
   const fmtDateTime = (value) =>
     value
       ? new Date(value).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
       : 'None';
-  const todayString = new Date().toLocaleDateString('en-CA');
 
   const getPatientStatusBadgeClass = (status) => {
     switch ((status || '').toLowerCase()) {
@@ -219,201 +190,17 @@ export default function AdminProviderDetail() {
         </div>
       </section>
 
-      {/* Day view: sessions, notes and time per client */}
-      <section className="detail-section card">
-        <div className="activity-toolbar">
-          <h3 style={{ margin: 0, border: 'none' }}>Daily Activity</h3>
-          <div className="activity-toolbar-controls">
-            <input
-              type="date"
-              value={day}
-              max={todayString}
-              onChange={(e) => e.target.value && setDay(e.target.value)}
-              aria-label="Activity date"
-            />
-            {day !== todayString && (
-              <button type="button" className="btn-secondary" onClick={() => setDay(todayString)}>
-                Today
-              </button>
-            )}
-          </div>
-        </div>
+      {/* Day view and last 30 days: the same time log the provider sees on My Profile */}
+      <ProviderTimeLog
+        key={id}
+        loadActivity={async (date, tz) => ({
+          day: await adminService.getProviderActivity(id, { date, tz }),
+          period: provider.activity,
+        })}
+      />
 
-        {dayError && (
-          <div className="auth-error-banner" role="alert" style={{ marginTop: '12px' }}>
-            <span className="error-icon">⚠️</span>
-            <span>{dayError}</span>
-          </div>
-        )}
-
-        {dayLoading && !dayData && <p style={{ color: 'var(--text-muted)' }}>Loading activity…</p>}
-
-        {dayData && (
-          <div style={{ opacity: dayLoading ? 0.55 : 1, transition: 'opacity 150ms' }}>
-            <div className="vitals-grid" style={{ marginTop: '16px' }}>
-              <div className="vital-card">
-                <span className="vital-label">Therapy Sessions</span>
-                <span className="vital-value">
-                  {dayData.summary.sessions_completed}
-                  <span className="vital-sub"> / {dayData.summary.sessions_total}</span>
-                </span>
-              </div>
-              <div className="vital-card">
-                <span className="vital-label">Clients Met</span>
-                <span className="vital-value">{dayData.summary.patients_met}</span>
-              </div>
-              <div className="vital-card">
-                <span className="vital-label">Time in Therapy</span>
-                <span className="vital-value">{dayData.summary.therapy_minutes}<span className="vital-sub"> min</span></span>
-              </div>
-              <div className="vital-card">
-                <span className="vital-label">New Notes Written</span>
-                <span className="vital-value">{dayData.summary.notes_written}</span>
-              </div>
-              <div className="vital-card">
-                <span className="vital-label">Chart Review Time</span>
-                <span className="vital-value">{dayData.summary.review_minutes}<span className="vital-sub"> min</span></span>
-              </div>
-              <div className="vital-card">
-                <span className="vital-label">Communications</span>
-                <span className="vital-value">{dayData.summary.communications}</span>
-              </div>
-            </div>
-
-            <h4 className="activity-subhead">Therapy sessions</h4>
-            {!dayData.sessions.length ? (
-              <p style={{ color: 'var(--text-muted)' }}>No therapy sessions on this day.</p>
-            ) : (
-              <div className="patient-table-container">
-                <table className="patient-table" style={{ fontSize: '0.9rem' }}>
-                  <thead>
-                    <tr>
-                      <th>Client</th>
-                      <th>Start</th>
-                      <th>End</th>
-                      <th>Length</th>
-                      <th>Mode</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dayData.sessions.map((session) => (
-                      <tr key={session.id}>
-                        <td><strong>{session.patient_name}</strong></td>
-                        <td>{fmtTime(session.started_at)}</td>
-                        <td>{fmtTime(session.ended_at)}</td>
-                        <td>{session.minutes} min</td>
-                        <td>{session.mode === 'InPerson' ? 'In person' : session.mode}</td>
-                        <td>
-                          <span className={`status-chip status-${session.status.toLowerCase().replace(' ', '-')}`}>
-                            {session.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <h4 className="activity-subhead">Time spent on each client</h4>
-            {!dayData.time_per_client.length ? (
-              <p style={{ color: 'var(--text-muted)' }}>No chart review or communication logged on this day.</p>
-            ) : (
-              <div className="patient-table-container">
-                <table className="patient-table" style={{ fontSize: '0.9rem' }}>
-                  <thead>
-                    <tr>
-                      <th>Client</th>
-                      <th>Reviewing data</th>
-                      <th>Care management</th>
-                      <th>Communication</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dayData.time_per_client.map((row) => (
-                      <tr key={row.patient_id}>
-                        <td><strong>{row.patient_name}</strong></td>
-                        <td>{row.review_minutes} min</td>
-                        <td>{row.management_minutes} min</td>
-                        <td>{row.communications ? `${row.communications} logged · ${row.communication_minutes} min` : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Last 30 days: time per client toward the monthly RTM target */}
-      {provider.activity && (
-        <section className="detail-section card">
-          <div className="activity-toolbar">
-            <div>
-              <h3 style={{ margin: 0, border: 'none' }}>Last {provider.activity.window_days} Days</h3>
-              <p className="profile-subtitle" style={{ margin: '4px 0 0' }}>
-                Time spent per client toward the {provider.activity.target_minutes}-minute monthly target
-              </p>
-            </div>
-            <span className="pill pill-active">
-              {provider.activity.totals.enrolled_meeting_target} of {provider.activity.totals.enrolled_clients} enrolled clients at target
-            </span>
-          </div>
-
-          <div className="vitals-grid" style={{ marginTop: '16px' }}>
-            <div className="vital-card">
-              <span className="vital-label">Therapy Sessions</span>
-              <span className="vital-value">{provider.activity.totals.therapy_sessions}</span>
-            </div>
-            <div className="vital-card">
-              <span className="vital-label">Notes Written</span>
-              <span className="vital-value">{provider.activity.totals.notes_written}</span>
-            </div>
-            <div className="vital-card">
-              <span className="vital-label">Monitoring Time</span>
-              <span className="vital-value">{provider.activity.totals.rtm_minutes}<span className="vital-sub"> min</span></span>
-            </div>
-          </div>
-
-          <div className="patient-table-container" style={{ marginTop: '16px' }}>
-            <table className="patient-table" style={{ fontSize: '0.9rem' }}>
-              <thead>
-                <tr>
-                  <th>Client</th>
-                  <th>Monitoring</th>
-                  <th>Reviewing</th>
-                  <th>Care mgmt</th>
-                  <th>Communication</th>
-                  <th>Total</th>
-                  <th>Therapy sessions</th>
-                  <th>Last activity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {provider.activity.clients.map((client) => (
-                  <tr key={client.patient_id}>
-                    <td><strong>{client.name}</strong></td>
-                    <td>{client.rtm_status === 'NotEnrolled' ? 'Not enrolled' : client.rtm_status}</td>
-                    <td>{client.review_minutes} min</td>
-                    <td>{client.management_minutes} min</td>
-                    <td>{client.communication_minutes} min</td>
-                    <td>
-                      <span className={client.rtm_status === 'Enrolled' ? (client.target_met ? 'target-met' : 'target-short') : ''}>
-                        {client.rtm_minutes} min
-                        {client.rtm_status === 'Enrolled' && (client.target_met ? ' ✓' : ' · below target')}
-                      </span>
-                    </td>
-                    <td>{client.therapy_sessions}</td>
-                    <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{fmtDateTime(client.last_activity_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+      {/* How this provider's clients use the apps (counts and times only, no notes) */}
+      <CaseloadEngagement providerId={id} title="Client App Engagement" />
 
       {/* Assigned Clients Table */}
       <section className="detail-section card">

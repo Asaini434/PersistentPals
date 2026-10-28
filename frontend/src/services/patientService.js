@@ -10,6 +10,13 @@ export const patientService = {
     return apiRequest(`/patients/${id}`, { method: 'GET' });
   },
 
+  // How one client uses the Reflect apps (modules, time of day, trend, mood). days: 7 to 90.
+  getActivity: async (id, { days = 30, tz } = {}) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (tz) params.set('tz', tz);
+    return apiRequest(`/patients/${id}/activity?${params.toString()}`, { method: 'GET' });
+  },
+
   // Add a provider note. Pass clinical_session_id to attach it to a therapy session.
   addNote: async (id, { content, clinical_session_id }) => {
     return apiRequest(`/patients/${id}/notes`, {

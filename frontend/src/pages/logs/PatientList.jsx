@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
+import { useAuth } from '../../context/AuthContext';
+import { CaseloadEngagement } from '../../components/activity/AppActivityPanels';
 
 /**
  * Client Directory & Clinical Logs
@@ -12,7 +14,9 @@ export default function PatientList() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [tab, setTab] = useState('clients'); // 'clients' | 'activity'
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     let active = true;
@@ -78,6 +82,33 @@ export default function PatientList() {
         </div>
       </header>
 
+      <div className="tab-bar" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'clients'}
+          className={`tab-btn${tab === 'clients' ? ' active' : ''}`}
+          onClick={() => setTab('clients')}
+        >
+          Client Directory
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'activity'}
+          className={`tab-btn${tab === 'activity' ? ' active' : ''}`}
+          onClick={() => setTab('activity')}
+        >
+          App Activity
+        </button>
+      </div>
+
+      {tab === 'activity' && (
+        <CaseloadEngagement providerId={user.id} onOpenClient={(patientId) => navigate(`/patients/${patientId}`)} />
+      )}
+
+      {tab === 'clients' && (
+      <>
       <div className="toolbar">
         <div className="search-box">
           <input
@@ -163,6 +194,8 @@ export default function PatientList() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </div>
   );
