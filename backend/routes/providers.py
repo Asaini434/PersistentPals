@@ -1,6 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from psycopg import Connection
 
+from .activity import (
+    DEFAULT_TZ,
+    caseload_engagement,
+    day_activity,
+    provider_activity,
+    resolve_day,
+    validate_tz,
+)
 from .auth import get_current_user, require_role
 from .database import get_connection
 
@@ -105,3 +113,47 @@ def get_provider(
         "last_login_at": provider["last_login_at"],
         "patients": _provider_patients(connection, str(provider["id"])),
     }
+
+
+def _check_provider_access(connection: Connection, user: dict[str, str], provider_id: str) -> None:
+    """Admins may look at any provider; a provider only at themselves."""
+    require_role(user, "admin", "provider")
+    if user["role"] == "provider" and user["id"] != provider_id:
+        raise HTTPException(status_code=403, detail="Providers can only access their own activity.")
+    exists = connection.execute(
+        "SELECT 1 FROM users WHERE id = %s AND role = 'Provider' AND is_deleted = false",
+        (provider_id,),
+    ).fetchone()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Provider not found.")
+
+
+@router.get("/{provider_id}/activity")
+def get_provider_activity(
+    provider_id: str,
+    date: str | None = Query(default=None, description="YYYY-MM-DD; defaults to today"),
+    tz: str = Query(default=DEFAULT_TZ, description="IANA time zone, e.g. America/New_York"),
+    user: dict[str, str] = Depends(get_current_user),
+    connection: Connection = Depends(get_connection),
+) -> dict:
+    """A provider's own time log: the last 30 days per client, plus one day in detail."""
+    _check_provider_access(connection, user, provider_id)
+    day = resolve_day(date, tz)
+    return {
+        "period": provider_activity(connection, provider_id),
+        "day": day_activity(connection, provider_id, day, tz),
+    }
+
+
+@router.get("/{provider_id}/engagement")
+def get_caseload_engagement(
+    provider_id: str,
+    days: int = Query(default=30, ge=7, le=90),
+    tz: str = Query(default=DEFAULT_TZ, description="IANA time zone, e.g. America/New_York"),
+    user: dict[str, str] = Depends(get_current_user),
+    connection: Connection = Depends(get_connection),
+) -> dict:
+    """How this provider's clients use the apps: modules, time of day, trend and who has gone quiet."""
+    _check_provider_access(connection, user, provider_id)
+    validate_tz(tz)
+    return caseload_engagement(connection, provider_id, days, tz)

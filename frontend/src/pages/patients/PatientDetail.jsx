@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
+import { ClientAppActivity } from '../../components/activity/AppActivityPanels';
+
+// "Oct 23", or "Oct 23, 2025" when it is not this year
+const fmtDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+};
+const fmtTime = (value) =>
+  value ? new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
 
 const formatWhen = (value) =>
   value
@@ -37,6 +48,9 @@ export default function PatientDetail() {
   const [comm, setComm] = useState({ direction: 'Outbound', channel: 'Email', minutes: 0, summary: '' });
   const [commSaving, setCommSaving] = useState(false);
   const [commError, setCommError] = useState('');
+
+  // App sessions list: show the latest few, expand on request
+  const [showAllApp, setShowAllApp] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -277,6 +291,9 @@ export default function PatientDetail() {
         </div>
       </section>
 
+      {/* App usage: charts for modules, time of day and trend */}
+      <ClientAppActivity patientId={id} />
+
       {/* Main Details Grid */}
       <div className="detail-layout">
         {/* Left Column: Medical History & Sessions */}
@@ -358,38 +375,52 @@ export default function PatientDetail() {
             <div className="profile-card-header">
               <div>
                 <h3>App Sessions</h3>
-                <p className="profile-subtitle">Reflect XR / Reflect Mobile module usage</p>
+                <p className="profile-subtitle">Each Reflect XR / Reflect Mobile session, with start and end times</p>
               </div>
             </div>
             {!patient.sessions?.length ? (
               <p style={{ color: 'var(--text-muted)' }}>No app sessions recorded.</p>
             ) : (
-              <div className="patient-table-container">
-                <table className="patient-table" style={{ fontSize: '0.9rem' }}>
-                  <thead>
-                    <tr>
-                      <th>Module</th>
-                      <th>Platform</th>
-                      <th>Date</th>
-                      <th>Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {patient.sessions.map((session) => (
-                      <tr key={session.id}>
-                        <td>{session.application_name}</td>
-                        <td>{session.platform}</td>
-                        <td>{session.session_date}</td>
-                        <td>
-                          {session.duration_seconds != null
-                            ? `${Math.round(session.duration_seconds / 60)} min`
-                            : 'N/A'}
-                        </td>
+              <>
+                <div className="patient-table-container">
+                  <table className="patient-table" style={{ fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Module</th>
+                        <th>Date</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Mood after</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {(showAllApp ? patient.sessions : patient.sessions.slice(0, 10)).map((session) => (
+                        <tr key={session.id}>
+                          <td>
+                            {session.application_name}
+                            <div className="sub-text">
+                              {session.platform}
+                              {session.program ? ` · ${session.program}` : ''}
+                              {session.uses_ai ? ' · AI' : ''}
+                            </div>
+                          </td>
+                          <td className="nowrap">{fmtDate(session.in_time)}</td>
+                          <td className="nowrap">{fmtTime(session.in_time)}</td>
+                          <td className="nowrap">{fmtTime(session.out_time)}</td>
+                          <td className="nowrap">{session.mood_after != null ? `${session.mood_after} / 5` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {patient.sessions.length > 10 && (
+                  <div className="show-more-row">
+                    <button type="button" className="btn-secondary" onClick={() => setShowAllApp((prev) => !prev)}>
+                      {showAllApp ? 'Show fewer' : `Show all ${patient.sessions.length} sessions`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </section>
 
@@ -410,20 +441,18 @@ export default function PatientDetail() {
                       <th>Provider</th>
                       <th>Mode</th>
                       <th>Date</th>
-                      <th>Duration</th>
+                      <th>Start</th>
+                      <th>End</th>
                     </tr>
                   </thead>
                   <tbody>
                     {patient.clinical_sessions.map((session) => (
                       <tr key={session.id}>
                         <td>{session.provider_name}</td>
-                        <td>{session.mode}</td>
-                        <td>{session.session_date}</td>
-                        <td>
-                          {session.duration_seconds != null
-                            ? `${Math.round(session.duration_seconds / 60)} min`
-                            : 'N/A'}
-                        </td>
+                        <td>{session.mode === 'InPerson' ? 'In person' : session.mode}</td>
+                        <td className="nowrap">{fmtDate(session.in_time)}</td>
+                        <td className="nowrap">{fmtTime(session.in_time)}</td>
+                        <td className="nowrap">{fmtTime(session.out_time)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -553,7 +582,7 @@ export default function PatientDetail() {
                   <option value="">General note (not tied to a session)</option>
                   {(patient.clinical_sessions || []).map((session) => (
                     <option key={session.id} value={session.id}>
-                      Session {session.session_date} · {session.mode}
+                      Session {fmtDate(session.in_time)} {fmtTime(session.in_time)} · {session.mode === 'InPerson' ? 'In person' : session.mode}
                     </option>
                   ))}
                 </select>

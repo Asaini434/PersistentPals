@@ -235,3 +235,9 @@ CREATE TABLE IF NOT EXISTS patient_medications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_medications_patient ON patient_medications (patient_id);
+
+-- ===== Official module catalog (PTI product catalog, effective 2026-09-09) =====
+-- program = the group a module belongs to (e.g. Creative Calm, Learn); uses_ai = marked (AI) in the catalog
+ALTER TABLE modules
+    ADD COLUMN IF NOT EXISTS program text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS uses_ai boolean NOT NULL DEFAULT false;

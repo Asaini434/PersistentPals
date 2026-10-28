@@ -13,9 +13,11 @@
   - Medications on record.
   - Therapy sessions (remote or in person) and provider notes / trend logs, with an **Add Note** form (optionally linked to a therapy session).
   - **Communication Log** for asynchronous provider/client contact that happened on another channel (email, text, phone, portal), with direction, minutes and a summary.
-  - Reflect XR and Reflect Mobile app usage, with session length and module.
-- **👤 My Profile**: A provider's own profile and assigned patients.
-- **🛡️ Admin Views**: Provider list and provider detail pages with assigned-patient counts, plus a **Daily Activity** view per provider (pick any date): therapy sessions with start and end times, clients met, new notes written, and time spent per client. A 30-day view shows monitoring time per client against the monthly target. Admins see counts and client names, not note text.
+  - **App Activity** charts: daily time in the apps, the modules the client uses most, the time of day they open the apps, XR vs mobile, and mood after sessions (14, 30 or 90 days).
+  - A session list with start and end times for both the client's app sessions and their therapy sessions.
+- **📊 Client App Activity** (App Activity tab on the client directory): how the whole caseload uses Reflect XR and Reflect Mobile: modules, time of day, sessions per day, and which clients have gone quiet.
+- **👤 My Profile**: A provider's own profile, assigned patients and their own time log (the same Daily Activity and 30-day views the admin sees).
+- **🛡️ Admin Views**: Provider list and provider detail pages with assigned-patient counts, plus a **Daily Activity** view per provider (pick any date): therapy sessions with start and end times, clients met, new notes written, and time spent per client. A 30-day view shows monitoring time per client against the monthly target. The admin page also shows the same Client App Activity charts for that provider's caseload. Admins see counts and client names, not note text.
 - **🤖 AI Chat Widget**: Floating, role-aware assistant that answers only from the logged-in user's permitted data. Runs on a local Ollama model by default, so records are not sent to a hosted provider.
 - **🎨 Reflect XR Design System**: Plus Jakarta Sans, ambient glow background, sunset color scheme (`#f43f5e`, `#ec4899`, `#a855f7`), floating pill navigation, color-coded status badges.
 
@@ -40,10 +42,10 @@ PersistentPals/
 │   ├── requirements.txt
 │   ├── .env.example
 │   ├── agent/                   # AI assistant (system prompt, tool functions)
-│   └── routes/                  # auth, admin, providers, patients, chat, health
+│   └── routes/                  # auth, admin, providers, patients, chat, health; activity.py holds the shared activity queries
 ├── database/
 │   ├── schema.sql               # Table definitions (safe to rerun)
-│   ├── seed.sql                 # Providers, admin, modules, demo logins
+│   ├── seed.sql                 # Providers, admin, the official Reflect module list, demo logins
 │   ├── run_all.sh               # Builds the whole database in order
 │   ├── seed/                    # Patient load + generated therapy, usage, notes, RTM data
 │   ├── data/                    # Synthea-derived patients_clean.csv + the script that made it
@@ -55,7 +57,7 @@ PersistentPals/
 │   ├── .env.example
 │   └── src/
 │       ├── main.jsx, App.jsx, index.css
-│       ├── components/          # common (Header, Sidebar, ChatWidget) and layout shells
+│       ├── components/          # common (Header, Sidebar, ChatWidget), layout shells, charts (SVG, no chart library), activity panels
 │       ├── context/             # AuthContext
 │       ├── pages/               # auth, logs (PatientList), patients, providers, admin
 │       ├── routes/              # AppRoutes, ProtectedRoute
@@ -150,7 +152,10 @@ API handlers are grouped under `backend/routes/`. Login accepts either a seeded 
 | `GET` | `/logs/patient-list` | Provider/Admin | List the caller's assigned patients. Admins may pass `?providerId=<uuid>`. |
 | `GET` | `/providers/{provider_id}/patients` | Provider/Admin | List a provider's assigned patients; providers can only request themselves. |
 | `GET` | `/providers?providerId=<uuid>` | Provider/Admin | Get a provider profile and assigned patients; providers can only request themselves. |
-| `GET` | `/patients/{patient_id}` | Provider/Admin | Get patient demographics, assigned providers, diagnosis history (with severity), medications, notes, communications, app sessions, and therapy sessions. |
+| `GET` | `/providers/{provider_id}/activity?date=YYYY-MM-DD&tz=America/New_York` | Provider (self)/Admin | A provider's time log: the last 30 days per client, plus one day in detail. |
+| `GET` | `/providers/{provider_id}/engagement?days=30&tz=America/New_York` | Provider (self)/Admin | How a provider's clients use the apps: modules, time of day, sessions per day, and who has gone quiet (no app use in 7+ days). |
+| `GET` | `/patients/{patient_id}` | Provider/Admin | Get patient demographics, assigned providers, diagnosis history (with severity), medications, notes, communications, app sessions (with module, program and mood after), and therapy sessions. |
+| `GET` | `/patients/{patient_id}/activity?days=30&tz=America/New_York` | Assigned provider | How the client uses the apps: per-day minutes, modules, programs, XR vs mobile, sessions by hour of day, and mood. `days` is 7 to 90. |
 | `POST` | `/patients/{patient_id}/notes` | Assigned provider | Add a note. With `clinical_session_id` it is saved as a session note, otherwise as a trend log. |
 | `POST` | `/patients/{patient_id}/communications` | Assigned provider | Log an async provider/client exchange (`direction`, `channel`, `minutes`, `summary`). |
 | `GET` | `/admin/providers` | Admin | List provider accounts and assigned-patient counts. |
@@ -195,11 +200,11 @@ npm run preview
 | :--- | :--- | :--- | :--- |
 | `/login` | `Login.jsx` | Public | Centered Login screen |
 | `/signup` | `Signup.jsx` | Public | Centered Signup screen |
-| `/logs/patient-list` | `PatientList.jsx` | Provider | Assigned clients with search and filters |
+| `/logs/patient-list` | `PatientList.jsx` | Provider | Assigned clients with search and filters, plus the App Activity tab |
 | `/patients/:id` | `PatientDetail.jsx` | Provider | Individual client dashboard |
-| `/providers/me` | `MyProfile.jsx` | Provider | The logged-in provider's profile and patients |
+| `/providers/me` | `MyProfile.jsx` | Provider | The logged-in provider's profile, time log and patients |
 | `/admin/providers` | `AdminProviderList.jsx` | Admin | All providers with patient counts |
-| `/admin/providers/:id` | `AdminProviderDetail.jsx` | Admin | One provider and their patients |
+| `/admin/providers/:id` | `AdminProviderDetail.jsx` | Admin | One provider: time log, client app activity and patients |
 
 `/` redirects to the right landing page for the logged-in role.
 
@@ -255,6 +260,15 @@ The script runs these files in order (you can also run them yourself with `psql 
 
 Most seed data is dated relative to the day you run it. `seed_today.sql` adds therapy sessions, reviews and notes for **today**, so run it again (`psql reflect -f database/seed/seed_today.sql`) on the morning of a demo so the admin Daily Activity view has current data. It is safe to rerun.
 
+**Modules.** `seed.sql` loads PTI's official module list (Product Catalog effective September 9, 2026): 14 Reflect Mobile modules and 17 Reflect XR Home modules, each with its program (for example Creative Calm, Learn) and whether it uses AI. The earlier placeholder modules are marked deleted. App usage is generated from that list. If your database was built before this change, regenerate the usage data once:
+
+```bash
+psql reflect -f database/maintenance/reseed_engagement.sql
+./database/run_all.sh reflect
+```
+
+`reseed_engagement.sql` only clears the generated app sessions and mood entries for the demo patients; everything else is kept.
+
 With Docker, pipe each file through the container, for example:
 
 ```bash
@@ -294,7 +308,7 @@ Connection string for the API: `postgresql://localhost:5432/reflect` (Docker: `p
 | `patient_medical_history` | Diagnoses, with severity, onset date and treatment start date |
 | `patient_medications` | Medications per patient (name, dose, frequency, status) |
 | `clinical_sessions` | Therapy sessions between provider and patient (remote or in person) |
-| `modules` | Catalog of Reflect XR and Reflect Mobile experiences |
+| `modules` | Catalog of Reflect XR and Reflect Mobile modules, with program and AI flag |
 | `sessions` | Patient app usage: module, start and end time |
 | `response_entries` | Self-reported mood scores (1 low to 5 high) tied to app sessions |
 | `rtm_enrollments` | RTM enrollment and consent per patient |
