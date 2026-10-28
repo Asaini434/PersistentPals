@@ -14,7 +14,7 @@ export default function PatientList() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [tab, setTab] = useState('clients'); // 'clients' | 'activity'
+  const [tab, setTab] = useState('activity'); // 'activity' | 'clients'
   const navigate = useNavigate();
   const { user } = useAuth();
 
