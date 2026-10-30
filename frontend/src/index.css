@@ -1728,6 +1728,13 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
+
+  .chat-history-empty {
+    margin: 12px 8px;
+    color: #94a3b8;
+    font-size: 0.82rem;
+    text-align: center;
+  }
   
   /* Active Context Pill */
   .chat-context-banner {
@@ -1825,6 +1832,36 @@
   
   .chat-paragraph {
     margin: 0;
+  }
+
+  .chat-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+  }
+
+  .chat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    text-align: left;
+  }
+
+  .chat-table th,
+  .chat-table td {
+    padding: 7px 9px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .chat-table th {
+    color: #fda4af;
+    background: rgba(244, 63, 94, 0.08);
+    font-weight: 650;
+  }
+
+  .chat-table tr:last-child td {
+    border-bottom: 0;
   }
   
   .chat-bullet-list {

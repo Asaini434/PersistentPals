@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { 
   Bot, 
+  History,
   LoaderCircle, 
   MessageCircle, 
   RotateCcw, 
@@ -42,7 +43,7 @@ const initialMessage = (role) => ({
 function renderInline(text) {
   if (!text) return null;
   const parts = [];
-  const regex = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  const regex = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`)/g;
   let lastIndex = 0;
   let match;
 
@@ -53,6 +54,8 @@ function renderInline(text) {
     const token = match[0];
     if (token.startsWith('**') && token.endsWith('**')) {
       parts.push(<strong key={match.index}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith('*') && token.endsWith('*')) {
+      parts.push(<em key={match.index}>{token.slice(1, -1)}</em>);
     } else if (token.startsWith('`') && token.endsWith('`')) {
       parts.push(<code key={match.index} className="chat-inline-badge">{token.slice(1, -1)}</code>);
     }
@@ -75,6 +78,28 @@ function FormattedContent({ text }) {
     <div className="chat-content-formatted">
       {blocks.map((block, bIdx) => {
         const trimmed = block.trim();
+        if (trimmed.includes('|') && trimmed.split('\n').length > 1) {
+          const rows = trimmed.split('\n')
+            .filter((line) => line.includes('|') && !/^\s*\|?\s*:?-{3,}/.test(line));
+          return (
+            <div key={bIdx} className="chat-table-wrap">
+              <table className="chat-table">
+                <tbody>
+                  {rows.map((row, rowIdx) => (
+                    <tr key={rowIdx}>
+                      {row.split('|').filter((cell, cellIdx, cells) =>
+                        !(cellIdx === 0 && !cell.trim()) && !(cellIdx === cells.length - 1 && !cell.trim())
+                      ).map((cell, cellIdx) => {
+                        const Cell = rowIdx === 0 ? 'th' : 'td';
+                        return <Cell key={cellIdx}>{renderInline(cell.trim())}</Cell>;
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
         if (trimmed.startsWith('>')) {
           const quoteText = trimmed.replace(/^>\s*/gm, '');
           return (
@@ -114,6 +139,8 @@ export default function ChatWidget() {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [historyMessages, setHistoryMessages] = useState([]);
+  const [isHistoryView, setIsHistoryView] = useState(false);
   const [draft, setDraft] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -127,27 +154,11 @@ export default function ChatWidget() {
   useEffect(() => {
     if (!isOpen || !isAuthenticated) return undefined;
 
-    let active = true;
-    setIsLoading(true);
+    setMessages([initialMessage(user?.role)]);
+    setHistoryMessages([]);
+    setIsHistoryView(false);
     setError('');
-    chatService
-      .getMessages()
-      .then((history) => {
-        if (active) setMessages(history.length ? history : [initialMessage(user?.role)]);
-      })
-      .catch((loadError) => {
-        if (active) {
-          setMessages([initialMessage(user?.role)]);
-          setError(loadError.message || 'Unable to load chat history.');
-        }
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
+    return undefined;
   }, [isOpen, isAuthenticated, user?.role]);
 
   useEffect(() => {
@@ -195,6 +206,26 @@ export default function ChatWidget() {
     }
   };
 
+  const toggleHistory = async () => {
+    if (isHistoryView) {
+      setIsHistoryView(false);
+      setError('');
+      return;
+    }
+
+    setError('');
+    setIsLoading(true);
+    try {
+      const history = await chatService.getMessages();
+      setHistoryMessages(history);
+      setIsHistoryView(true);
+    } catch (historyError) {
+      setError(historyError.message || 'Unable to load chat history.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!isAuthenticated) return null;
 
   const quickPrompts = user?.role === 'admin' ? ADMIN_PROMPTS : PROVIDER_PROMPTS;
@@ -222,6 +253,16 @@ export default function ChatWidget() {
               <button 
                 type="button" 
                 className="chat-icon-button" 
+                onClick={toggleHistory}
+                aria-label={isHistoryView ? 'Return to new chat' : 'View chat history'}
+                title={isHistoryView ? 'Return to new chat' : 'View chat history'}
+                disabled={isSending || isLoading}
+              >
+                {isHistoryView ? <MessageCircle size={16} /> : <History size={16} />}
+              </button>
+              <button 
+                type="button" 
+                className="chat-icon-button" 
                 onClick={handleClear} 
                 aria-label="Clear conversation" 
                 title="Clear conversation" 
@@ -241,7 +282,7 @@ export default function ChatWidget() {
             </div>
           </header>
 
-          {activePatientId && (
+          {!isHistoryView && activePatientId && (
             <div className="chat-context-banner">
               <Activity size={13} className="chat-context-icon" />
               <span>Active Client Page Detected</span>
@@ -257,7 +298,7 @@ export default function ChatWidget() {
           )}
 
           <div className="chat-message-list" aria-live="polite" aria-busy={isLoading || isSending}>
-            {messages.map((message) => (
+            {(isHistoryView ? historyMessages : messages).map((message) => (
               <article 
                 key={message.id} 
                 className={`chat-message ${message.sender === 'User' ? 'chat-message-user' : 'chat-message-assistant'}`}
@@ -275,14 +316,16 @@ export default function ChatWidget() {
             {(isLoading || isSending) && (
               <div className="chat-typing" role="status">
                 <LoaderCircle size={15} className="chat-spinner" />
-                <span>{isLoading ? 'Loading records...' : 'Analyzing clinical data & metrics...'}</span>
+                <span>{isLoading ? 'Loading chat history...' : 'Analyzing clinical data & metrics...'}</span>
               </div>
+            )}
+            {isHistoryView && historyMessages.length === 0 && !isLoading && (
+              <p className="chat-history-empty">No previous messages yet.</p>
             )}
             <div ref={endOfMessagesRef} />
           </div>
 
-          {/* Quick Prompt Chips */}
-          <div className="chat-chips-container" aria-label="Suggested questions">
+          {!isHistoryView && <div className="chat-chips-container" aria-label="Suggested questions">
             {quickPrompts.map((item, idx) => (
               <button
                 key={idx}
@@ -294,11 +337,11 @@ export default function ChatWidget() {
                 {item.label}
               </button>
             ))}
-          </div>
+          </div>}
 
           {error && <p className="chat-error" role="alert">{error}</p>}
 
-          <form className="chat-composer" onSubmit={handleSubmit}>
+          {!isHistoryView && <form className="chat-composer" onSubmit={handleSubmit}>
             <label className="sr-only" htmlFor="chat-message-input">Ask the assistant</label>
             <textarea
               id="chat-message-input"
@@ -328,7 +371,7 @@ export default function ChatWidget() {
             >
               <Send size={16} />
             </button>
-          </form>
+          </form>}
           <div className="chat-footer-note">
             <span>Clinical guidance grounded in Reflect XR & Mobile data (PTI)</span>
           </div>
