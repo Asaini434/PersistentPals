@@ -158,14 +158,16 @@ def _patient_record(connection: Connection, provider_id: str, patient: dict) -> 
     rtm_activity = connection.execute(
         """
         SELECT 
-            ROUND(COALESCE(SUM(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60), 0))::int AS review_minutes_30d,
+            ROUND(COALESCE(SUM(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60)
+                FILTER (WHERE activity_type IN ('Review', 'ManagementTime')), 0))::int AS review_minutes_30d,
             COUNT(*) FILTER (WHERE activity_type = 'Review')::int AS review_sessions_count,
             COUNT(*) FILTER (WHERE activity_type = 'Communication')::int AS comms_count,
             COUNT(*) FILTER (WHERE activity_type = 'ManagementTime')::int AS management_count
         FROM rtm_activities
-        WHERE patient_id = %s AND started_at >= now() - interval '30 days' AND is_deleted = false
+                WHERE patient_id = %s AND provider_id = %s
+                    AND started_at >= now() - interval '30 days' AND is_deleted = false
         """,
-        (patient_id,),
+                (patient_id, provider_id),
     ).fetchone()
 
     rtm_doc = connection.execute(
@@ -266,52 +268,83 @@ def get_chat_context(
                 {"type": "patient", "id": records[0]["id"]} if len(records) == 1 else None,
             )
 
-        # Overview of all assigned patients for the provider
-        summary = []
-        for p in patients:
-            p_stats = connection.execute(
-                """
-                SELECT 
-                    COUNT(s.id)::int AS total_sessions,
-                    COUNT(s.id) FILTER (WHERE s.started_at >= now() - interval '30 days')::int AS sessions_30d,
-                    COUNT(s.id) FILTER (WHERE m.platform = 'XR')::int AS xr_count,
-                    COUNT(s.id) FILTER (WHERE m.platform = 'Mobile')::int AS mobile_count,
-                    MAX(s.started_at) AS last_active
+        # Fetch the dashboard metrics in one query instead of three queries per patient.
+        summary_rows = connection.execute(
+            """
+            WITH session_stats AS (
+                SELECT s.patient_id,
+                       COUNT(*) FILTER (WHERE s.started_at >= now() - interval '30 days')::int AS sessions_30d,
+                       COUNT(*) FILTER (WHERE m.platform = 'XR')::int AS xr_count,
+                       COUNT(*) FILTER (WHERE m.platform = 'Mobile')::int AS mobile_count,
+                       MAX(s.started_at) AS last_active
                 FROM sessions s
                 JOIN modules m ON m.id = s.module_id
-                WHERE s.patient_id = %s AND s.is_deleted = false
-                """,
-                (p["id"],),
-            ).fetchone()
-            p_conditions = connection.execute(
-                """
-                SELECT condition, status
-                FROM patient_medical_history
-                WHERE patient_id = %s AND status = 'Active' AND is_deleted = false
-                LIMIT 2
-                """,
-                (p["id"],),
-            ).fetchall()
-            p_mood = connection.execute(
-                """
-                SELECT ROUND(AVG(mood_score)::numeric, 1)::float AS avg_mood
+                WHERE s.is_deleted = false
+                GROUP BY s.patient_id
+            ), mood_stats AS (
+                SELECT patient_id,
+                       ROUND(AVG(mood_score)::numeric, 1)::float AS average_mood,
+                       ROUND(AVG(mood_score) FILTER (
+                           WHERE recorded_at >= now() - interval '14 days'
+                       )::numeric, 1)::float AS recent_mood,
+                       ROUND(AVG(mood_score) FILTER (
+                           WHERE recorded_at >= now() - interval '28 days'
+                             AND recorded_at < now() - interval '14 days'
+                       )::numeric, 1)::float AS prior_mood
                 FROM response_entries
-                WHERE patient_id = %s AND is_deleted = false
-                """,
-                (p["id"],),
-            ).fetchone()
-            summary.append({
-                "id": p["id"],
-                "name": p["name"],
-                "age": p["age"],
-                "gender": p["gender"],
-                "active_conditions": [c["condition"] for c in p_conditions],
-                "sessions_last_30_days": p_stats["sessions_30d"] if p_stats else 0,
-                "reflect_xr_sessions": p_stats["xr_count"] if p_stats else 0,
-                "reflect_mobile_sessions": p_stats["mobile_count"] if p_stats else 0,
-                "average_mood_score": p_mood["avg_mood"] if p_mood else None,
-                "last_active": p_stats["last_active"] if p_stats else None,
-            })
+                WHERE is_deleted = false
+                GROUP BY patient_id
+            ), rtm_stats AS (
+                                SELECT patient_id, provider_id,
+                       ROUND(COALESCE(SUM(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60), 0))::int AS review_minutes_30d
+                FROM rtm_activities
+                WHERE started_at >= now() - interval '30 days' AND is_deleted = false
+                  AND activity_type IN ('Review', 'ManagementTime')
+                                GROUP BY patient_id, provider_id
+            ), active_conditions AS (
+                SELECT patient_id, array_agg(condition ORDER BY condition) AS conditions
+                FROM (
+                    SELECT patient_id, condition,
+                           ROW_NUMBER() OVER (PARTITION BY patient_id ORDER BY date_created DESC) AS position
+                    FROM patient_medical_history
+                    WHERE status = 'Active' AND is_deleted = false
+                ) AS recent_conditions
+                WHERE position <= 2
+                GROUP BY patient_id
+            )
+            SELECT p.id, concat_ws(' ', p.first_name, p.last_name) AS name,
+                   EXTRACT(YEAR FROM age(current_date, p.date_of_birth))::int AS age,
+                   p.gender, COALESCE(ac.conditions, ARRAY[]::text[]) AS active_conditions,
+                   COALESCE(ss.sessions_30d, 0) AS sessions_30d,
+                   COALESCE(ss.xr_count, 0) AS xr_count,
+                   COALESCE(ss.mobile_count, 0) AS mobile_count,
+                   ss.last_active, ms.average_mood, ms.recent_mood, ms.prior_mood,
+                   COALESCE(rs.review_minutes_30d, 0) AS review_minutes_30d
+            FROM assignments a
+            JOIN patients p ON p.id = a.patient_id
+            LEFT JOIN session_stats ss ON ss.patient_id = p.id
+            LEFT JOIN mood_stats ms ON ms.patient_id = p.id
+            LEFT JOIN rtm_stats rs ON rs.patient_id = p.id AND rs.provider_id = a.provider_id
+            LEFT JOIN active_conditions ac ON ac.patient_id = p.id
+            WHERE a.provider_id = %s AND a.is_deleted = false AND p.is_deleted = false
+            ORDER BY p.last_name, p.first_name
+            LIMIT 100
+            """,
+            (user["id"],),
+        ).fetchall()
+        summary = [{
+            "name": row["name"],
+            "active_conditions": row["active_conditions"],
+            "sessions_last_30_days": row["sessions_30d"],
+            "reflect_xr_sessions": row["xr_count"],
+            "reflect_mobile_sessions": row["mobile_count"],
+            "average_mood_score": row["average_mood"],
+            "recent_14_day_mood": row["recent_mood"],
+            "prior_14_day_mood": row["prior_mood"],
+            "rtm_review_minutes_30d": row["review_minutes_30d"],
+            "rtm_20_minute_target_met": row["review_minutes_30d"] >= 20,
+            "last_active": row["last_active"],
+        } for row in summary_rows]
         return {
             "assigned_patients_overview": summary,
             "patient_names": [p["name"] for p in patients],
