@@ -23,6 +23,8 @@ export async function apiRequest(endpoint, options = {}) {
 
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, config);
+    if (response.status === 204) return null;
+
     const result = await response.json();
     if (!response.ok) {
       throw new Error(result.detail || result.error || `API Error: ${response.statusText}`);
