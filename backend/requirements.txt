@@ -1,5 +1,6 @@
 bcrypt>=4.1,<6
 fastapi>=0.115,<1
+fastmcp>=2,<4
 openai>=1.51,<3
 PyJWT[crypto]>=2.9,<3
 psycopg[binary]>=3.2,<4
