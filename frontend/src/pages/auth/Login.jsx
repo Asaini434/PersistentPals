@@ -41,11 +41,7 @@ export default function Login() {
     try {
       const result = await login(formData.email, formData.password);
       if (result.success) {
-        if (result.role === 'admin') {
-          navigate('/admin/providers', { replace: true });
-        } else {
-          navigate('/logs/patient-list', { replace: true });
-        }
+        navigate('/home', { replace: true });
       } else {
         setLocalError(result.error);
       }
@@ -59,12 +55,12 @@ export default function Login() {
       <div className="auth-page">
         <div className="auth-header">
           <div className="auth-brand-badge">
-            <span className="brand-logo-icon" style={{ color: '#f43f5e', display: 'inline-flex', verticalAlign: 'middle', marginRight: '6px' }}>
+            <span className="brand-logo-icon" style={{ color: 'var(--coral)', display: 'inline-flex', verticalAlign: 'middle', marginRight: '6px' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
               </svg>
             </span>
-            <span style={{ fontWeight: 800, letterSpacing: '0.08em', color: '#ffffff' }}>REFLECT XR</span>
+            <span style={{ fontWeight: 800, letterSpacing: '0.08em', color: 'var(--indigo)' }}>REFLECT XR</span>
           </div>
 
           <div className="auth-badge-row" style={{ marginTop: '10px' }}>
@@ -145,7 +141,7 @@ export default function Login() {
 
         <div className="auth-footer-note">
           <p>
-            🔒 Enforcing Strict HIPAA & HITECH Client Confidentiality. Clinician credentials access Client Therapy Tracks; Admin credentials access the Clinicians Directory.
+            🔒 Built with HIPAA-minded safeguards (prototype, synthetic data only). Clinician credentials access Client Therapy Tracks; Admin credentials access the Clinicians Directory.
           </p>
         </div>
       </div>

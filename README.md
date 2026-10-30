@@ -19,7 +19,12 @@
 - **👤 My Profile**: A provider's own profile, assigned patients and their own time log (the same Daily Activity and 30-day views the admin sees).
 - **🛡️ Admin Views**: Provider list and provider detail pages with assigned-patient counts, plus a **Daily Activity** view per provider (pick any date): therapy sessions with start and end times, clients met, new notes written, and time spent per client. A 30-day view shows monitoring time per client against the monthly target. The admin page also shows the same Client App Activity charts for that provider's caseload. Admins see counts and client names, not note text.
 - **🤖 AI Chat Widget**: Floating, role-aware assistant that answers only from the logged-in user's permitted data. Runs on a local Ollama model by default, so records are not sent to a hosted provider.
-- **🎨 Reflect XR Design System**: Plus Jakarta Sans, ambient glow background, sunset color scheme (`#f43f5e`, `#ec4899`, `#a855f7`), floating pill navigation, color-coded status badges.
+- **🏠 Home**: A welcome page with a role-aware dashboard map that helps new users find things, and a compact HIPAA readiness self-assessment.
+- **📈 Remote Therapeutic Monitoring (RTM)**: Enrollment and consent, a 30-day monitoring status (days with app data, sessions, review and management time), documentation status per period, and an RTM Monitoring tab for the whole caseload. The 16-day target is a placeholder until PTI confirms it.
+- **🔏 Signed login tokens**: Tokens are digitally signed with an RSA key (RS256), see Security design below.
+- **🎨 Design**: Follows perstechinc.com/reflectxr: Twilight Indigo `#1F305E`, Soft Coral `#FF8282`, Slate Blue `#586F8A`, Cool Gray `#E6E8EB`, Off White `#FAFAFB`, Amber `#E8A33D`, IBM Plex Sans, a navy sidebar and a white pill navigation.
+
+📚 **Documentation:** [Architecture, API reference and setup](docs/ARCHITECTURE.md)
 
 ---
 
@@ -42,7 +47,8 @@ PersistentPals/
 │   ├── requirements.txt
 │   ├── .env.example
 │   ├── agent/                   # AI assistant (system prompt, tool functions)
-│   └── routes/                  # auth, admin, providers, patients, chat, health; activity.py holds the shared activity queries
+│   └── routes/                  # auth, admin, providers, patients, rtm, chat, health (health also serves the readiness self-assessment); activity.py holds the shared activity queries
+├── docs/                        # ARCHITECTURE.md (design, API reference, setup)
 ├── database/
 │   ├── schema.sql               # Table definitions (safe to rerun)
 │   ├── seed.sql                 # Providers, admin, the official Reflect module list, demo logins
@@ -57,9 +63,9 @@ PersistentPals/
 │   ├── .env.example
 │   └── src/
 │       ├── main.jsx, App.jsx, index.css
-│       ├── components/          # common (Header, Sidebar, ChatWidget), layout shells, charts (SVG, no chart library), activity panels
+│       ├── components/          # common (Header, Sidebar, ChatWidget), layout shells, charts (SVG, no chart library), activity panels, rtm, home (map + readiness)
 │       ├── context/             # AuthContext
-│       ├── pages/               # auth, logs (PatientList), patients, providers, admin
+│       ├── pages/               # home, auth, logs (PatientList), patients, providers, admin
 │       ├── routes/              # AppRoutes, ProtectedRoute
 │       └── services/            # api, auth, patient, provider, admin, chat clients
 └── README.md
@@ -142,6 +148,8 @@ Set `DATABASE_URL` and replace `JWT_SECRET` in `backend/.env`. The chatbot is co
 
 ### Backend API routes
 
+The full list with request bodies is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#8-api-reference).
+
 API handlers are grouped under `backend/routes/`. Login accepts either a seeded username or email and returns an eight-hour bearer token. Send that token in `Authorization: Bearer <access_token>` for protected routes.
 
 | Method | Endpoint | Access | Purpose |
@@ -158,6 +166,12 @@ API handlers are grouped under `backend/routes/`. Login accepts either a seeded 
 | `GET` | `/patients/{patient_id}/activity?days=30&tz=America/New_York` | Assigned provider | How the client uses the apps: per-day minutes, modules, programs, XR vs mobile, sessions by hour of day, and mood. `days` is 7 to 90. |
 | `POST` | `/patients/{patient_id}/notes` | Assigned provider | Add a note. With `clinical_session_id` it is saved as a session note, otherwise as a trend log. |
 | `POST` | `/patients/{patient_id}/communications` | Assigned provider | Log an async provider/client exchange (`direction`, `channel`, `minutes`, `summary`). |
+| `GET` | `/providers/{provider_id}/rtm` | Provider (self) | RTM status for every client on the caseload. |
+| `GET` | `/patients/{patient_id}/rtm` | Assigned provider | RTM status for the current 30-day period, plus enrollment, documentation and previous periods. |
+| `PUT` | `/patients/{patient_id}/rtm/enrollment` | Assigned provider | Record enrollment and consent (enrolling requires consent). |
+| `PATCH` | `/patients/{patient_id}/rtm/documentation` | Assigned provider | Set documentation status for the current period. |
+| `POST` | `/patients/{patient_id}/rtm/activities` | Assigned provider | Log review or management minutes. |
+| `GET` | `/security/readiness` | Authenticated | HIPAA readiness self-assessment (some items checked live). |
 | `GET` | `/admin/providers` | Admin | List provider accounts and assigned-patient counts. |
 | `GET` | `/admin/providers/{provider_id}` | Admin | Get one provider, assigned patients and a 30-day activity summary. |
 | `GET` | `/admin/providers/{provider_id}/activity?date=YYYY-MM-DD&tz=America/New_York` | Admin | One day of a provider's work: therapy sessions with start and end, notes written, time per client. |
@@ -200,13 +214,14 @@ npm run preview
 | :--- | :--- | :--- | :--- |
 | `/login` | `Login.jsx` | Public | Centered Login screen |
 | `/signup` | `Signup.jsx` | Public | Centered Signup screen |
-| `/logs/patient-list` | `PatientList.jsx` | Provider | Assigned clients with search and filters, plus the App Activity tab |
+| `/home` | `Home.jsx` | Provider, Admin | Welcome, dashboard map, readiness self-assessment |
+| `/logs/patient-list` | `PatientList.jsx` | Provider | Tabs: App Activity, RTM Monitoring, Client Directory |
 | `/patients/:id` | `PatientDetail.jsx` | Provider | Individual client dashboard |
 | `/providers/me` | `MyProfile.jsx` | Provider | The logged-in provider's profile, time log and patients |
 | `/admin/providers` | `AdminProviderList.jsx` | Admin | All providers with patient counts |
 | `/admin/providers/:id` | `AdminProviderDetail.jsx` | Admin | One provider: time log, client app activity and patients |
 
-`/` redirects to the right landing page for the logged-in role.
+`/` redirects to `/home` after sign-in.
 
 ---
 
@@ -336,3 +351,24 @@ Connection string for the API: `postgresql://localhost:5432/reflect` (Docker: `p
 | `3482a59` | **Initial commit: ReflectX Health frontend (React + Vite)** | Scaffolded React Vite project, created folder structure (`pages`, `components`, `services`, `routes`), implemented the first mock dataset, created Login/Signup forms, Patient List & Patient Detail pages, and applied Reflect XR design system with Google Fonts & glowing theme. |
 | `37949d7` | **Clean up routes, API config, and template leftovers** | Updated `api.js` to use `import.meta.env.VITE_API_URL`, removed hardcoded fallback tokens, updated navigation links, and removed unused starter template assets (`App.css`, `react.svg`). |
 | later | **Backend, database and AI assistant** | PostgreSQL schema and seed data, FastAPI backend with JWT auth and role-based routes, front end wired to the real API, role-scoped local AI chat widget, and a switch to mental-health themed Synthea-based demo data. |
+
+## Security design (CIA)
+
+| Goal | What we do |
+|---|---|
+| Confidentiality | Role-based access on the server (admin / provider / assigned-client checks), bcrypt passwords, local AI model |
+| Integrity | Login tokens are digitally signed with an RSA key (RS256). The private key signs at login; the public key verifies on every request, and the accepted algorithm is fixed in code, so a changed role, an `alg=none` token or an HS256 downgrade is rejected |
+| Resilience | Soft delete (`is_deleted`) so removed rows can be recovered |
+
+Create the signing keys once (from `backend/`):
+
+```bash
+pip install -r requirements.txt
+mkdir -p keys                            # git ignores backend/keys/
+openssl genrsa -out keys/jwt_private.pem 2048
+openssl rsa -in keys/jwt_private.pem -pubout -out keys/jwt_public.pem
+```
+
+Restart the backend and log in again. With no key pair the app falls back to the `JWT_SECRET` shared-secret signature (HS256).
+
+The Home page shows a **HIPAA readiness score**, a self-assessment from `GET /security/readiness`. Some items are checked live (signing algorithm, soft-delete tables, audit rows, session expiry); the rest are maintained by hand in `backend/routes/health.py`. It is not a compliance certification.

@@ -1,5 +1,7 @@
 import os
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
+from pathlib import Path
 
 import bcrypt
 import jwt
@@ -13,6 +15,47 @@ from .database import get_connection
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer_scheme = HTTPBearer(auto_error=False)
+
+TOKEN_LIFETIME_HOURS = 8
+KEYS_DIR = Path(__file__).resolve().parent.parent / "keys"
+
+
+@lru_cache(maxsize=1)
+def _signing_config() -> dict[str, str] | None:
+    """How login tokens are signed and checked.
+
+    Preferred: an RSA key pair (RS256). The private key signs tokens at login; only the public key
+    is needed to check them, so a leaked verifier cannot forge tokens. Create the pair with the
+    openssl commands in the README (keys land in backend/keys/, which git ignores).
+
+    Fallback for older setups: a shared secret (HS256). The algorithm is fixed here and never read from
+    the token header, so a forged header cannot downgrade the check.
+    """
+    private_path = Path(os.getenv("JWT_PRIVATE_KEY_PATH") or KEYS_DIR / "jwt_private.pem")
+    public_path = Path(os.getenv("JWT_PUBLIC_KEY_PATH") or KEYS_DIR / "jwt_public.pem")
+    if private_path.is_file() and public_path.is_file():
+        return {
+            "algorithm": "RS256",
+            "sign_key": private_path.read_text(),
+            "verify_key": public_path.read_text(),
+        }
+    secret = os.getenv("JWT_SECRET")
+    if secret:
+        return {"algorithm": "HS256", "sign_key": secret, "verify_key": secret}
+    return None
+
+
+def signing_algorithm() -> str | None:
+    """Name of the algorithm in use ('RS256' or 'HS256'), or None when auth is not configured."""
+    config = _signing_config()
+    return config["algorithm"] if config else None
+
+
+def _require_signing_config() -> dict[str, str]:
+    config = _signing_config()
+    if config is None:
+        raise HTTPException(status_code=503, detail="Authentication service is not configured.")
+    return config
 
 
 class LoginRequest(BaseModel):
@@ -30,14 +73,17 @@ class LoginRequest(BaseModel):
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> dict[str, str]:
-    jwt_secret = os.getenv("JWT_SECRET")
-    if not jwt_secret:
-        raise HTTPException(status_code=503, detail="Authentication service is not configured.")
+    config = _require_signing_config()
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Bearer token is required.")
 
     try:
-        claims = jwt.decode(credentials.credentials, jwt_secret, algorithms=["HS256"])
+        claims = jwt.decode(
+            credentials.credentials,
+            config["verify_key"],
+            algorithms=[config["algorithm"]],
+            options={"require": ["exp", "sub", "role"]},
+        )
     except jwt.InvalidTokenError as error:
         raise HTTPException(status_code=401, detail="Invalid or expired token.") from error
 
@@ -54,9 +100,7 @@ def login(
     credentials: LoginRequest,
     connection: Connection = Depends(get_connection),
 ) -> dict[str, object]:
-    jwt_secret = os.getenv("JWT_SECRET")
-    if not jwt_secret:
-        raise HTTPException(status_code=503, detail="Authentication service is not configured.")
+    config = _require_signing_config()
 
     identifier = (credentials.username or credentials.email or "").strip().lower()
     account = connection.execute(
@@ -104,10 +148,10 @@ def login(
             "sub": user["id"],
             "role": user["role"],
             "iat": now,
-            "exp": now + timedelta(hours=8),
+            "exp": now + timedelta(hours=TOKEN_LIFETIME_HOURS),
         },
-        jwt_secret,
-        algorithm="HS256",
+        config["sign_key"],
+        algorithm=config["algorithm"],
     )
     return {"user": user, "access_token": token, "token_type": "bearer"}
 
