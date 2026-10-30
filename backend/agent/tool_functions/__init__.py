@@ -64,6 +64,9 @@ def _patient_record(connection: Connection, provider_id: str, patient: dict) -> 
         SELECT 
             COUNT(*)::int AS total_sessions,
             COUNT(*) FILTER (WHERE s.started_at >= now() - interval '30 days')::int AS sessions_last_30_days,
+            COUNT(*) FILTER (WHERE s.started_at >= now() - interval '7 days')::int AS sessions_last_7_days,
+            COUNT(*) FILTER (WHERE s.started_at >= now() - interval '14 days'
+                              AND s.started_at < now() - interval '7 days')::int AS sessions_previous_7_days,
             COUNT(*) FILTER (WHERE m.platform = 'XR')::int AS reflect_xr_sessions,
             COUNT(*) FILTER (WHERE m.platform = 'Mobile')::int AS reflect_mobile_sessions,
             ROUND(COALESCE(SUM(EXTRACT(EPOCH FROM (s.ended_at - s.started_at)) / 60), 0))::int AS total_duration_minutes,
@@ -117,8 +120,15 @@ def _patient_record(connection: Connection, provider_id: str, patient: dict) -> 
         """
         SELECT 
             COUNT(*)::int AS total_entries,
+            COUNT(*) FILTER (WHERE recorded_at >= now() - interval '14 days')::int AS recent_14d_entries,
+            COUNT(*) FILTER (WHERE recorded_at >= now() - interval '28 days'
+                              AND recorded_at < now() - interval '14 days')::int AS prior_14d_entries,
             ROUND(AVG(mood_score)::numeric, 1)::float AS avg_mood_score,
             ROUND(AVG(mood_score) FILTER (WHERE recorded_at >= now() - interval '14 days')::numeric, 1)::float AS recent_14d_avg_mood,
+            ROUND(AVG(mood_score) FILTER (
+                WHERE recorded_at >= now() - interval '28 days'
+                  AND recorded_at < now() - interval '14 days'
+            )::numeric, 1)::float AS prior_14d_avg_mood,
             MIN(mood_score)::int AS min_mood,
             MAX(mood_score)::int AS max_mood
         FROM response_entries
@@ -274,6 +284,9 @@ def get_chat_context(
             WITH session_stats AS (
                 SELECT s.patient_id,
                        COUNT(*) FILTER (WHERE s.started_at >= now() - interval '30 days')::int AS sessions_30d,
+                       COUNT(*) FILTER (WHERE s.started_at >= now() - interval '7 days')::int AS sessions_7d,
+                       COUNT(*) FILTER (WHERE s.started_at >= now() - interval '14 days'
+                                          AND s.started_at < now() - interval '7 days')::int AS sessions_prev_7d,
                        COUNT(*) FILTER (WHERE m.platform = 'XR')::int AS xr_count,
                        COUNT(*) FILTER (WHERE m.platform = 'Mobile')::int AS mobile_count,
                        MAX(s.started_at) AS last_active
@@ -283,6 +296,13 @@ def get_chat_context(
                 GROUP BY s.patient_id
             ), mood_stats AS (
                 SELECT patient_id,
+                       COUNT(*) FILTER (
+                           WHERE recorded_at >= now() - interval '14 days'
+                       )::int AS recent_mood_entries,
+                       COUNT(*) FILTER (
+                           WHERE recorded_at >= now() - interval '28 days'
+                             AND recorded_at < now() - interval '14 days'
+                       )::int AS prior_mood_entries,
                        ROUND(AVG(mood_score)::numeric, 1)::float AS average_mood,
                        ROUND(AVG(mood_score) FILTER (
                            WHERE recorded_at >= now() - interval '14 days'
@@ -316,9 +336,12 @@ def get_chat_context(
                    EXTRACT(YEAR FROM age(current_date, p.date_of_birth))::int AS age,
                    p.gender, COALESCE(ac.conditions, ARRAY[]::text[]) AS active_conditions,
                    COALESCE(ss.sessions_30d, 0) AS sessions_30d,
+                   COALESCE(ss.sessions_7d, 0) AS sessions_7d,
+                   COALESCE(ss.sessions_prev_7d, 0) AS sessions_prev_7d,
                    COALESCE(ss.xr_count, 0) AS xr_count,
                    COALESCE(ss.mobile_count, 0) AS mobile_count,
                    ss.last_active, ms.average_mood, ms.recent_mood, ms.prior_mood,
+                   ms.recent_mood_entries, ms.prior_mood_entries,
                    COALESCE(rs.review_minutes_30d, 0) AS review_minutes_30d
             FROM assignments a
             JOIN patients p ON p.id = a.patient_id
@@ -336,11 +359,15 @@ def get_chat_context(
             "name": row["name"],
             "active_conditions": row["active_conditions"],
             "sessions_last_30_days": row["sessions_30d"],
+            "sessions_last_7_days": row["sessions_7d"],
+            "sessions_previous_7_days": row["sessions_prev_7d"],
             "reflect_xr_sessions": row["xr_count"],
             "reflect_mobile_sessions": row["mobile_count"],
             "average_mood_score": row["average_mood"],
             "recent_14_day_mood": row["recent_mood"],
             "prior_14_day_mood": row["prior_mood"],
+            "recent_14d_entries": row["recent_mood_entries"],
+            "prior_14d_entries": row["prior_mood_entries"],
             "rtm_review_minutes_30d": row["review_minutes_30d"],
             "rtm_20_minute_target_met": row["review_minutes_30d"] >= 20,
             "last_active": row["last_active"],
