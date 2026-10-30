@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
 import { ClientAppActivity } from '../../components/activity/AppActivityPanels';
+import { RtmPanel } from '../../components/RtmPanels';
 
 // "Oct 23", or "Oct 23, 2025" when it is not this year
 const fmtDate = (value) => {
@@ -293,6 +294,9 @@ export default function PatientDetail() {
 
       {/* App usage: charts for modules, time of day and trend */}
       <ClientAppActivity patientId={id} />
+
+      {/* Remote Therapeutic Monitoring: enrollment, consent, 30-day status, documentation */}
+      <RtmPanel patientId={id} clientName={patient.name} />
 
       {/* Main Details Grid */}
       <div className="detail-layout">

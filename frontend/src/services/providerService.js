@@ -24,4 +24,13 @@ export const providerService = {
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiRequest(`/providers/${providerId}/activity${query}`, { method: 'GET' });
   },
+
+  // Remote Therapeutic Monitoring status for every client on the caseload.
+  getRtm: async (providerId) => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+    return apiRequest(`/providers/${providerId}/rtm?tz=${encodeURIComponent(tz)}`, { method: 'GET' });
+  },
+
+  // HIPAA-readiness self-assessment shown on the Home page: { score, met, partial, planned, pillars, checks, disclaimer }.
+  getReadiness: async () => apiRequest('/security/readiness', { method: 'GET' }),
 };

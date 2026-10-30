@@ -32,4 +32,28 @@ export const patientService = {
       body: JSON.stringify({ direction, channel, minutes: Number(minutes) || 0, summary }),
     });
   },
+
+  // Remote Therapeutic Monitoring for one client: enrollment, 30-day status, documentation, review time.
+  getRtm: async (id) => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+    return apiRequest(`/patients/${id}/rtm?tz=${encodeURIComponent(tz)}`, { method: 'GET' });
+  },
+
+  saveRtmEnrollment: async (id, { status, consent_given, consent_date, notes }) =>
+    apiRequest(`/patients/${id}/rtm/enrollment`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, consent_given, consent_date: consent_date || null, notes: notes || '' }),
+    }),
+
+  setRtmDocumentation: async (id, status) => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+    return apiRequest(`/patients/${id}/rtm/documentation`, { method: 'PATCH', body: JSON.stringify({ status, tz }) });
+  },
+
+  // activity_type: 'Review' (looking at the client's app data) or 'ManagementTime'.
+  logRtmActivity: async (id, { activity_type, minutes, summary }) =>
+    apiRequest(`/patients/${id}/rtm/activities`, {
+      method: 'POST',
+      body: JSON.stringify({ activity_type, minutes: Number(minutes), summary: summary || '' }),
+    }),
 };

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
 import { useAuth } from '../../context/AuthContext';
 import { CaseloadEngagement } from '../../components/activity/AppActivityPanels';
+import { RtmCaseload } from '../../components/RtmPanels';
 
 /**
  * Client Directory & Clinical Logs
@@ -14,7 +15,7 @@ export default function PatientList() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [tab, setTab] = useState('activity'); // 'activity' | 'clients'
+  const [tab, setTab] = useState('activity'); // 'activity' | 'rtm' | 'clients'
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -86,25 +87,38 @@ export default function PatientList() {
         <button
           type="button"
           role="tab"
-          aria-selected={tab === 'clients'}
-          className={`tab-btn${tab === 'clients' ? ' active' : ''}`}
-          onClick={() => setTab('clients')}
-        >
-          Client Directory
-        </button>
-        <button
-          type="button"
-          role="tab"
           aria-selected={tab === 'activity'}
           className={`tab-btn${tab === 'activity' ? ' active' : ''}`}
           onClick={() => setTab('activity')}
         >
           App Activity
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'rtm'}
+          className={`tab-btn${tab === 'rtm' ? ' active' : ''}`}
+          onClick={() => setTab('rtm')}
+        >
+          RTM Monitoring
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'clients'}
+          className={`tab-btn${tab === 'clients' ? ' active' : ''}`}
+          onClick={() => setTab('clients')}
+        >
+          Client Directory
+        </button>
       </div>
 
       {tab === 'activity' && (
         <CaseloadEngagement providerId={user.id} onOpenClient={(patientId) => navigate(`/patients/${patientId}`)} />
+      )}
+
+      {tab === 'rtm' && (
+        <RtmCaseload providerId={user.id} onOpenClient={(patientId) => navigate(`/patients/${patientId}`)} />
       )}
 
       {tab === 'clients' && (
@@ -170,7 +184,7 @@ export default function PatientList() {
                       <span className="sub-text">({patient.gender || 'Unspecified'})</span>
                     </td>
                     <td className="diagnosis-cell">
-                      <span style={{ color: '#f8fafc', fontWeight: 600 }}>{patient.condition || 'No condition on record'}</span>
+                      <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{patient.condition || 'No condition on record'}</span>
                     </td>
                     <td>
                       <span className={getStatusBadgeClass(patient.status)}>

@@ -38,7 +38,7 @@ export default function Header({ hideFloatingNav = false }) {
         <div className="main-navbar-wrapper">
           <nav className="floating-navbar">
             <div className="header-brand">
-              <Link to={isAdmin ? '/admin/providers' : '/logs/patient-list'} className="brand-link">
+              <Link to="/home" className="brand-link">
                 <div className="brand-logo-icon">
                   {/* SVG Tree / Neural Icon */}
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -61,6 +61,11 @@ export default function Header({ hideFloatingNav = false }) {
 
             {/* Center Navigation Links: Rendered strictly according to role */}
             <div className="header-nav-center">
+              {(isAdmin || isProvider) && (
+                <NavLink to="/home" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+                  HOME
+                </NavLink>
+              )}
               {isAdmin ? (
                 <>
                   <NavLink

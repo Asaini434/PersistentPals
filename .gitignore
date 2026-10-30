@@ -8,3 +8,7 @@ __pycache__/
 *.pyc
 venv/
 .venv/
+
+# JWT signing keys (private key must never be committed)
+*.pem
+backend/keys/

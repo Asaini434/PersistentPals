@@ -51,6 +51,9 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
+        <NavLink to="/home" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
+          🏠 Home
+        </NavLink>
         {isAdmin && (
           <>
             <div className="sidebar-section-label">Main Navigation</div>
